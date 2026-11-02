@@ -11,8 +11,13 @@ Se inspira en [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Playe
 
 - **Vídeo:** MP4 (H.264/AAC recomendado), progreso guardado, reanudación, marca de visto, siguiente vídeo automático, subtítulos externos `.srt`, miniaturas al salir del vídeo.
 - **Imágenes:** PNG, JPEG y BMP (24/32 bits), incluidas las capturas y fotos de la propia consola (`ux0:picture`, solo lectura). La pestaña Imágenes muestra todas, de la más nueva a la más vieja, con miniaturas. Zoom con X/cuadrado, mover con la cruceta o el dedo, cambiar de imagen con L/R, izquierda/derecha, deslizando o tocando los bordes.
-- **Archivos:** pestañas Todo, Series, Películas, Imágenes y Carpetas. Opciones → **Nueva carpeta**, **Renombrar seleccionado** y **Eliminar seleccionado** (archivos y carpetas vacías, con confirmación) con el teclado del sistema. Subtítulos, miniaturas y progreso acompañan al vídeo renombrado o eliminado.
+- **Archivos:** pestañas Todo, Series, Películas, Imágenes y Carpetas. Opciones → **Nueva carpeta**, **Renombrar seleccionado** y **Eliminar seleccionado** (archivos y carpetas, con confirmación) con el teclado del sistema. Subtítulos, miniaturas y progreso acompañan al vídeo renombrado o eliminado.
 - Interfaz en **español o inglés** (Ajustes → Idioma). El progreso se guarda cada 10 segundos y al pausar.
+
+## Dos partes
+
+- **App de PS Vita** (`src/`, `assets/`): el reproductor.
+- **Herramienta de PC** (`pc/`): arrastras vídeos, convierte solo lo que la Vita necesita (por ejemplo audio HE-AAC a AAC-LC, o vídeo HEVC/1080p a H.264 720p) y los envía por el FTP de VitaShell. Versión para Windows con ffmpeg incluido en cada Release.
 
 ## Instalación y uso
 
@@ -52,7 +57,7 @@ Las carpetas `Series/` y `Peliculas/` son opcionales: si existen, esas pestañas
 - Las fotos de la consola son de solo lectura. Si el sistema no deja leerlas, la pestaña Imágenes muestra las de la biblioteca y el código de error.
 - Rutas de menos de 512 bytes, nombres de hasta 255 bytes, 1.024 entradas por carpeta.
 - SRT: UTF-8, hasta 4 MiB y 4.096 fragmentos.
-- Nombres: sin `\ / : * ? " < > |`, sin espacios ni punto al borde. Solo se pueden eliminar carpetas vacías.
+- Nombres: sin `\ / : * ? " < > |`, sin espacios ni punto al borde. Eliminar una carpeta borra su contenido, tras una confirmación con la cantidad de archivos.
 
 ## Seguridad
 
@@ -68,6 +73,16 @@ python tools/verify_vpk.py <ruta-al-vpk>
 ```
 
 Si la ruta del proyecto contiene espacios, copia el repositorio a una ruta sin espacios: `vita-pack-vpk` falla con ellos.
+
+### Herramienta de PC
+
+```powershell
+cd pc
+python -m pip install pywebview
+python -m kirv_pc                                     # desde el código (necesita ffmpeg en el PATH)
+./build.ps1 -Ffmpeg C:/ffmpeg-essentials             # versión de Windows con ffmpeg incluido
+python -m unittest discover -s tests
+```
 
 ### Pruebas del núcleo (sin VitaSDK)
 
@@ -87,6 +102,7 @@ include/   cabeceras
 assets/    iconos, fondos y LiveArea
 tests/     pruebas del núcleo y del paquete
 tools/     build.ps1 y verify_vpk.py
+pc/        herramienta de PC: convertir y enviar vídeos a la Vita
 licenses/  avisos de bibliotecas de terceros
 ```
 

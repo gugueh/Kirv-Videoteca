@@ -6,3 +6,6 @@ build/
 *.elf
 *.log
 *.thumb.png
+__pycache__/
+pc/kirv_pc/ui/img/
+*.zip

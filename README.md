@@ -12,8 +12,13 @@ Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player)
 
 - **Video:** MP4 (H.264/AAC recommended), saved progress, resume, watched marks, autoplay next, external `.srt` subtitles, thumbnails captured when leaving a video.
 - **Images:** PNG, JPEG and BMP (24/32-bit), including the console's own screenshots and photos (`ux0:picture`, read-only). The Images tab lists every picture newest first, with thumbnails. Zoom with X/square, pan with the d-pad or a finger, change picture with L/R, left/right, swipes or the screen edges.
-- **Files:** tabs for All, Series, Movies, Images and Folders. Options → **New folder**, **Rename selected** and **Delete selected** (files and empty folders, with confirmation) using the system keyboard. Subtitles, thumbnails and saved progress follow renamed or deleted videos.
+- **Files:** tabs for All, Series, Movies, Images and Folders. Options → **New folder**, **Rename selected** and **Delete selected** (files and folders, with confirmation) using the system keyboard. Subtitles, thumbnails and saved progress follow renamed or deleted videos.
 - **Spanish or English** interface (Settings → Language). Progress is saved every 10 seconds and when pausing.
+
+## Two parts
+
+- **PS Vita app** (`src/`, `assets/`): the player itself.
+- **PC tool** (`pc/`): drop videos, it converts only what the Vita needs (for example HE-AAC audio to AAC-LC, or HEVC/1080p video to H.264 720p) and sends them over VitaShell's FTP. Windows build with ffmpeg included in each Release.
 
 ## Install and use
 
@@ -53,7 +58,7 @@ ux0:data/VMPH00001/video/
 - Console pictures are read-only. If the system does not let the app read them, the Images tab shows the library images and the error code.
 - Paths under 512 bytes, names up to 255 bytes, 1,024 entries per folder.
 - SRT: UTF-8, up to 4 MiB and 4,096 cues.
-- Names: no `\ / : * ? " < > |`, no leading/trailing space or trailing dot. Only empty folders can be deleted.
+- Names: no `\ / : * ? " < > |`, no leading/trailing space or trailing dot. Deleting a folder deletes its contents after a confirmation that shows how many files it holds.
 
 ## Security
 
@@ -69,6 +74,16 @@ python tools/verify_vpk.py <path-to-vpk>
 ```
 
 If the project path contains spaces, copy the repository to a path without spaces: `vita-pack-vpk` fails with them.
+
+### PC tool
+
+```powershell
+cd pc
+python -m pip install pywebview
+python -m kirv_pc                                     # run from source (needs ffmpeg on PATH)
+./build.ps1 -Ffmpeg C:/ffmpeg-essentials             # Windows build with ffmpeg bundled
+python -m unittest discover -s tests
+```
 
 ### Core tests (no VitaSDK needed)
 
@@ -88,6 +103,7 @@ include/   headers
 assets/    icons, backgrounds, LiveArea
 tests/     core and package tests
 tools/     build.ps1 and verify_vpk.py
+pc/        PC tool: convert and send videos to the Vita
 licenses/  third-party notices
 ```
 
