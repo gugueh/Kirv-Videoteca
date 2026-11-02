@@ -22,7 +22,7 @@ Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player)
 ## Two parts
 
 - **PS Vita app** (`src/`, `assets/`): the player itself.
-- **PC tool** (`pc/`): drop videos, it converts only what the Vita needs (for example HE-AAC audio to AAC-LC, or HEVC/1080p video to H.264 720p) and sends them over VitaShell's FTP. Windows build with ffmpeg included in each Release.
+- **PC tool** (`pc/`): drop videos, it converts only what the Vita needs (for example HE-AAC audio to AAC-LC, or HEVC/1080p video to H.264 720p) and sends them over VitaShell's FTP, into a new or an existing folder on the Vita (files already there are skipped). An option re-encodes large videos for the Vita's 960×544 screen: a 300 MB 1080p episode drops to about 130 MB with no visible loss. Windows build with ffmpeg included in each Release.
 
 ## Install and use
 

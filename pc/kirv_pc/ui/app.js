@@ -4,7 +4,8 @@ const TEXT = {
   es: {
     drop: "Arrastra videos o carpetas", addFiles: "Videos", addFolder: "Carpeta", add: "Agregar",
     convert: "Convertir", send: "Enviar a la Vita", cancel: "Cancelar", port: "Puerto",
-    test: "Conectar", options: "Opciones", output: "Copias convertidas", keep: "Conservar copias",
+    test: "Conectar", options: "Opciones", output: "Carpeta de las copias en la PC", keep: "Guardar en la PC una copia de lo convertido",
+    compact: "Optimizar para la pantalla de la Vita (ocupa menos)", shrink: "Reducir", already: "ya estaba", destination: "Carpeta en la Vita: elige una existente o escribe un nombre nuevo",
     analysing: "Analizando", ready: "Listo", encode_audio: "Audio", encode_video: "Video", remux: "Formato",
     unsupported: "No compatible", converting: "Convirtiendo", sending: "Enviando", done: "Convertido",
     sent: "En la Vita ✓", failed: "Error", connected: "Conectado", noHost: "Falta la IP",
@@ -14,7 +15,8 @@ const TEXT = {
   en: {
     drop: "Drop videos or folders", addFiles: "Videos", addFolder: "Folder", add: "Add",
     convert: "Convert", send: "Send to Vita", cancel: "Cancel", port: "Port",
-    test: "Connect", options: "Options", output: "Converted copies", keep: "Keep copies",
+    test: "Connect", options: "Options", output: "Folder for the copies on the PC", keep: "Keep a copy of converted videos on the PC",
+    compact: "Optimise for the Vita screen (smaller files)", shrink: "Shrink", already: "already there", destination: "Folder on the Vita: pick an existing one or type a new name",
     analysing: "Analysing", ready: "Ready", encode_audio: "Audio", encode_video: "Video", remux: "Format",
     unsupported: "Unsupported", converting: "Converting", sending: "Sending", done: "Converted",
     sent: "On Vita ✓", failed: "Error", connected: "Connected", noHost: "IP missing",
@@ -70,7 +72,8 @@ function render() {
     group.className = "group";
     const head = document.createElement("div");
     head.className = "group-head";
-    head.innerHTML = `<img src="img/folder.png" alt=""><input spellcheck="false">`;
+    head.innerHTML = `<img src="img/folder.png" alt=""><span class="dest">PS Vita /</span><input spellcheck="false" list="vitaFolderList">`;
+    head.title = t("destination");
     const input = head.querySelector("input");
     input.value = folder;
     input.disabled = state.busy;
@@ -91,6 +94,7 @@ function render() {
       info.push(size(item.size));
       if (item.subtitles) info.push(t("subs"));
       if (item.detail && item.status === "failed") info.push(item.detail);
+      if (item.detail === "already" && item.status === "sent") info.push(t("already"));
       row.innerHTML = `<img alt=""><div><div class="name"></div><div class="info"></div></div><div class="state"></div><button class="remove" title="×">×</button><div class="track"><div></div></div>`;
       row.querySelector("img").src = item.status === "sent" ? "img/check.png" : item.status === "unsupported" || item.status === "failed" ? "img/back.png" : "img/play.png";
       row.querySelector(".name").textContent = item.name;
@@ -106,7 +110,7 @@ function render() {
     }
     list.append(group);
   }
-  const convert = items.filter((i) => ["encode_audio", "encode_video", "remux"].includes(i.status)).length;
+  const convert = items.filter((i) => ["encode_audio", "encode_video", "remux", "shrink"].includes(i.status)).length;
   $("#summary").textContent = items.length ? t("count")(items.length, convert, size(items.reduce((a, i) => a + i.size, 0))) : t("nothing");
   document.querySelector('[data-action="cancel"]').hidden = !state.busy;
   document.querySelectorAll('[data-action="convert"],[data-action="send"],[data-action="clear"],[data-action="files"],[data-action="folder"]')
@@ -135,7 +139,7 @@ window.kirv = {
 
 async function saveSettings() {
   const values = { host: $("#host").value.trim(), port: parseInt($("#port").value, 10) || 1337,
-    output: $("#output").value.trim(), keep: $("#keep").checked, lang: state.settings.lang };
+    output: $("#output").value.trim(), keep: $("#keep").checked, compact: $("#compact").checked, lang: state.settings.lang };
   state.settings = api ? await api.save_settings(values) : Object.assign(state.settings, values);
 }
 
@@ -149,6 +153,7 @@ async function testVita() {
   status.className = "small " + (result.ok ? "" : "bad");
   status.textContent = result.ok ? t("connected") : result.error;
   status.style.color = result.ok ? "var(--good)" : "var(--bad)";
+  $("#vitaFolderList").replaceChildren(...(result.folders || []).map((f) => Object.assign(document.createElement("option"), { value: f })));
   (result.folders || []).forEach((f) => {
     const li = document.createElement("li");
     li.innerHTML = `<img src="img/folder.png" alt=""><span></span>`;
@@ -181,7 +186,7 @@ document.addEventListener("click", async (e) => {
   if (a === "cancel" && api) api.cancel();
   if (a === "studio" && api) api.open_studio();
 });
-["host", "port", "output", "keep"].forEach((id) => $("#" + id).addEventListener("change", saveSettings));
+["host", "port", "output", "keep", "compact"].forEach((id) => $("#" + id).addEventListener("change", saveSettings));
 ["dragenter", "dragover"].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); $("#drop").classList.add("hover"); $("#list").classList.add("hover"); }));
 ["dragleave", "drop"].forEach((ev) => document.addEventListener(ev, () => { $("#drop").classList.remove("hover"); $("#list").classList.remove("hover"); }));
 
@@ -195,9 +200,10 @@ async function init() {
   state.settings = s.settings; state.ffmpeg = s.ffmpeg; state.busy = s.busy;
   s.items.forEach((i) => state.items.set(i.id, i));
   $("#host").value = s.settings.host || ""; $("#port").value = s.settings.port || 1337;
-  $("#output").value = s.settings.output || ""; $("#keep").checked = !!s.settings.keep;
+  $("#output").value = s.settings.output || ""; $("#keep").checked = !!s.settings.keep; $("#compact").checked = s.settings.compact !== false;
   translate();
   if (!s.ffmpeg) notice(t("noFfmpeg"), true);
+  if (api && s.settings.host) testVita();  /* fills the list of folders on the Vita */
 }
 
 /* Preview in a normal browser, without the Python side. */

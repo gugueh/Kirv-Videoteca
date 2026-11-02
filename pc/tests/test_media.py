@@ -56,6 +56,22 @@ class Plan(unittest.TestCase):
         streams["streams"].insert(0, {"index": 9, "codec_type": "video", "codec_name": "mjpeg", "disposition": {"attached_pic": 1}})
         self.assertEqual(media.plan(streams)["video"], "copy")
 
+    def test_compact_for_the_vita_screen(self):
+        big = info({"width": 1920, "height": 1080, "bit_rate": "1400000"}, {})
+        p = media.plan(big, compact=True)
+        self.assertEqual((p["summary"], p["video"], p["compact"]), ("shrink", "encode", True))
+        args = media.command("ffmpeg", "in.mp4", "out.mp4", p)
+        self.assertIn("23", args)
+        self.assertTrue(any("960" in a and "544" in a for a in args))
+        small = info({"width": 848, "height": 480, "bit_rate": "460000"}, {"profile": "HE-AAC"})
+        self.assertEqual(media.plan(small, compact=True)["summary"], "encode_audio")
+        heavy = info({"width": 960, "height": 540, "bit_rate": "5000000"}, {})
+        self.assertEqual(media.plan(heavy, compact=True)["summary"], "shrink")
+        hevc = media.plan(info({"codec_name": "hevc", "width": 1920, "height": 1080}, {}), compact=True)
+        self.assertEqual((hevc["summary"], hevc["compact"]), ("encode_video", True))
+        self.assertEqual(media.plan(big)["summary"], "encode_video")
+        self.assertFalse(media.plan(big)["compact"])
+
     def test_command(self):
         p = media.plan(info({"codec_name": "hevc"}, {"profile": "HE-AAC"}))
         args = media.command("ffmpeg", "in.mkv", "out.mp4", p)

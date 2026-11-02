@@ -11,6 +11,10 @@ import sys
 
 # What SceAvPlayer in the Vita app accepts (see the app's README, "Limits").
 MAX_WIDTH, MAX_HEIGHT = 1280, 720
+# The Vita screen. Anything larger is scaled down on the console anyway, so
+# optimising to this size saves space without a visible loss.
+SCREEN_WIDTH, SCREEN_HEIGHT = 960, 544
+COMPACT_BITRATE = 2500000
 VIDEO_PROFILES = {"baseline", "constrained baseline", "main", "high"}
 MAX_LEVEL = 41
 AUDIO_RATES = {44100, 48000}
@@ -67,8 +71,9 @@ def faststart(path):
     return False
 
 
-def plan(info, path=""):
-    """Returns what to do: {'video','audio','subtitle','remux','summary','reasons','duration'}.
+def plan(info, path="", compact=False):
+    """compact: re-encode for the Vita screen when larger or heavier than it needs.
+    Returns what to do: {'video','audio','subtitle','remux','summary','reasons','duration'}.
     video/audio: 'copy', 'encode' or 'none'. subtitle: stream index to extract or None."""
     streams = info.get("streams", [])
     video = next((s for s in streams if s.get("codec_type") == "video" and not s.get("disposition", {}).get("attached_pic")), None)
@@ -96,7 +101,12 @@ def plan(info, path=""):
         reasons.append("video_size")
     elif level > MAX_LEVEL:
         reasons.append("video_level")
+    bitrate = int(video.get("bit_rate") or info.get("format", {}).get("bit_rate") or 0)
+    shrink = compact and (w > SCREEN_WIDTH or h > SCREEN_HEIGHT or bitrate > COMPACT_BITRATE)
+    if shrink and not reasons:
+        reasons.append("compact")
     result["video"] = "encode" if reasons else "copy"
+    result["compact"] = bool(compact and result["video"] == "encode")
     if audio:
         result["audio_codec"] = audio.get("codec_name", "") + ("" if not audio.get("profile") else " " + audio["profile"])
         ok = (audio.get("codec_name") == "aac" and (audio.get("profile") or "LC") == "LC"
@@ -113,7 +123,7 @@ def plan(info, path=""):
         result["remux"] = True
         reasons.append("container")
     if result["video"] == "encode":
-        result["summary"] = "encode_video"
+        result["summary"] = "shrink" if result["compact"] and reasons[0] in ("compact", "video_size") else "encode_video"
     elif result["audio"] == "encode":
         result["summary"] = "encode_audio"
     elif result["remux"]:
@@ -135,9 +145,12 @@ def command(ffmpeg, src, dst, p):
     if p["video"] == "copy":
         args += ["-c:v", "copy"]
     else:
-        args += ["-c:v", "libx264", "-preset", "medium", "-crf", "21", "-profile:v", "high", "-level:v", "4.1",
+        # Compact: Vita screen size, slower preset, CRF 23 (SSIM about 0.994 against the original on that screen).
+        width, height = (SCREEN_WIDTH, SCREEN_HEIGHT) if p.get("compact") else (MAX_WIDTH, MAX_HEIGHT)
+        args += ["-c:v", "libx264", "-preset", "slow" if p.get("compact") else "medium",
+                 "-crf", "23" if p.get("compact") else "21", "-profile:v", "high", "-level:v", "4.1",
                  "-pix_fmt", "yuv420p",
-                 "-vf", "scale='min(%d,iw)':'min(%d,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2" % (MAX_WIDTH, MAX_HEIGHT),
+                 "-vf", "scale='min(%d,iw)':'min(%d,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2" % (width, height),
                  "-maxrate", "6M", "-bufsize", "12M"]
     if p["audio"] == "copy":
         args += ["-c:a", "copy"]

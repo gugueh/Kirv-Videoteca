@@ -15,7 +15,7 @@ from . import media, vita
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~/.config"), "KirvVideoteca", "pc.json")
 DEFAULTS = {"host": "", "port": 1337, "lang": "es",
-            "output": os.path.join(os.path.expanduser("~"), "Videos", "Kirv Videoteca"), "keep": True}
+            "output": os.path.join(os.path.expanduser("~"), "Videos", "Kirv Videoteca"), "keep": True, "compact": True}
 
 
 def resource(*parts):
@@ -64,7 +64,10 @@ class Api:
                 "items": [self._public(i) for i in self.items], "busy": self.busy}
 
     def save_settings(self, values):
+        replan = "compact" in values and bool(values["compact"]) != bool(self.settings.get("compact"))
         self.settings.update({k: values[k] for k in DEFAULTS if k in values})
+        if replan:
+            self._replan()
         os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
         with open(CONFIG, "w", encoding="utf-8") as f:
             json.dump(self.settings, f, indent=2)
@@ -105,13 +108,22 @@ class Api:
     def _analyse(self, items):
         for item in items:
             try:
-                p = media.plan(media.probe(item["path"]), item["path"])
+                item["_info"] = media.probe(item["path"])
+                p = media.plan(item["_info"], item["path"], self.settings.get("compact"))
                 item["_plan"] = p
                 item.update(status=p["summary"], duration=p["duration"], width=p["width"], height=p["height"],
                             video=p["video_codec"], audio=p["audio_codec"], subtitles=p["subtitle"] is not None)
             except Exception as error:  # unreadable or not a video
                 item.update(status="unsupported", detail=str(error)[:200])
             self._emit("item", self._public(item))
+
+    def _replan(self):
+        """The optimise option changes what each pending video needs."""
+        for item in self.items:
+            if item.get("_info") and item["status"] in ("ready", "encode_audio", "encode_video", "remux", "shrink"):
+                p = media.plan(item["_info"], item["path"], self.settings.get("compact"))
+                item.update(_plan=p, status=p["summary"])
+                self._emit("item", self._public(item))
 
     def rename_folder(self, old, new):
         new = vita.safe_name(new)
@@ -232,12 +244,13 @@ class Api:
         item.update(status="sending", progress=0)
         self._emit("item", self._public(item))
         try:
+            skipped = True
             for local in files:
                 name = media.output_name(item["path"]) if local.endswith(".mp4") else os.path.basename(local)
-                box.send(local, item["folder"], name,
-                         lambda v: self._emit("progress", {"id": item["id"], "progress": v, "status": "sending"}),
-                         lambda: self.stop)
-            item.update(status="sent", progress=1)
+                skipped = not box.send(local, item["folder"], name,
+                                       lambda v: self._emit("progress", {"id": item["id"], "progress": v, "status": "sending"}),
+                                       lambda: self.stop) and skipped
+            item.update(status="sent", progress=1, detail="already" if skipped else "")
         except Exception as error:
             item.update(status="failed", detail=str(error)[:200])
         self._emit("item", self._public(item))

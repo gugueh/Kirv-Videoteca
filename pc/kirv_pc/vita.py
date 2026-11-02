@@ -72,6 +72,8 @@ class Vita:
         size = os.path.getsize(local)
         sent = [0]
         self.ensure(folder)
+        if self.listing(folder).get(name) == size:
+            return 0  # already on the Vita, identical size: nothing to send
 
         def block(data):
             if cancel and cancel():
