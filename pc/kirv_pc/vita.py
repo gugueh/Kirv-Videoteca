@@ -1,3 +1,4 @@
+# Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
 """Sends files to the Kirv Videoteca library on a PS Vita over VitaShell's FTP server."""
 import ftplib
 import os

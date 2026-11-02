@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #include "library.h"
 #include <assert.h>
 #include <stdlib.h>

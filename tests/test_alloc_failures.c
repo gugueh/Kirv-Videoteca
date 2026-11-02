@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 /* Compile the actual portable implementation with an injected realloc failure.
  * The production binary is compiled normally and never includes this hook. */
 #include <assert.h>

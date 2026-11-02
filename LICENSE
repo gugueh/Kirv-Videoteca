@@ -1,0 +1,11 @@
+Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
+
+Kirv Videoteca (the PS Vita application, the PC tool, their source code,
+interface design, icons, logo and artwork) is the work of gugueh (Kirv Studio).
+No permission is granted to copy, modify, distribute or sell it, in whole or
+in part, without written permission from the author.
+
+Third-party components keep their own licenses:
+- libvita2d (MIT) and newlib: see the licenses/ folder.
+- ffmpeg, bundled unmodified with the Windows build of the PC tool, is
+  distributed under its own license (GPL); see the ffmpeg folder of that build.

@@ -1,3 +1,4 @@
+# Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
 """Decides what a video needs to play in Kirv Videoteca on the PS Vita, and builds
 the ffmpeg command for it. Analysis and planning are pure functions so they can be
 tested without ffmpeg."""

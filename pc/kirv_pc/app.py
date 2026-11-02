@@ -1,3 +1,4 @@
+# Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
 """Kirv Videoteca PC: prepares videos for the PS Vita app and sends them over FTP."""
 import json
 import os

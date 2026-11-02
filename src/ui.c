@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #include "ui.h"
 #include "app.h"
 #include <setjmp.h>

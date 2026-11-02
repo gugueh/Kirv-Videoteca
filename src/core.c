@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #include "core.h"
 #include <stdlib.h>
 #include <string.h>

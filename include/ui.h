@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #ifndef KIRV_UI_H
 #define KIRV_UI_H
 #include <vita2d.h>

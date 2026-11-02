@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 /* Newlib's generic file descriptors also support sockets. This application
  * cannot create or use sockets: replace the three linked socket fallbacks
  * with errors, and enforce absence of networking imports in verify_vpk.py.

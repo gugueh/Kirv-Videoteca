@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #ifndef VMP_LIBRARY_H
 #define VMP_LIBRARY_H
 #include "core.h"

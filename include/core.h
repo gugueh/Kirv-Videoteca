@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #ifndef VMP_CORE_H
 #define VMP_CORE_H
 #include <stddef.h>

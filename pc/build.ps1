@@ -1,3 +1,4 @@
+# Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
 param(
     # Folder with ffmpeg.exe, ffprobe.exe and the build's LICENSE (for example a Gyan "essentials" build).
     [Parameter(Mandatory = $true)][string]$Ffmpeg,

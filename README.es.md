@@ -6,7 +6,7 @@ Reproductor de videos MP4 y visor de imágenes para PS Vita, con biblioteca orga
 
 ## Por qué esta estética
 
-La PS Vita tuvo una identidad visual propia: burbujas brillantes, degradados azules, paneles translúcidos y la LiveArea. Muchas apps caseras se ven como menús de depuración o copian el estilo de otros sistemas. Kirv Videoteca recupera el lenguaje visual de la época de auge de la consola para que se sienta parte del sistema y no un agregado. La herramienta de PC usa los mismos colores, iconos y fondo, para que las dos partes se vean como un solo producto.
+La PS Vita tuvo una identidad visual propia: burbujas brillantes, degradados azules, paneles translúcidos y la LiveArea. Muchas apps caseras se ven como menús de depuración o copian el estilo de otros sistemas. Kirv Videoteca recupera el lenguaje visual de la época de auge de la consola, incorporando iconos propios ajustados a la medida e inspirados en ese auge, para que se sienta parte del sistema y no un agregado. La herramienta de PC usa los mismos colores e iconos.
 
 > **Estado:** v0.1, primera versión publicada. La reproducción de video se usa a diario en una PS Vita real; el visor de imágenes, las fotos de la consola, la gestión de archivos y la herramienta de PC se probaron en la consola.
 
@@ -116,3 +116,5 @@ licenses/  avisos de bibliotecas de terceros
 - [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player), de SonicMastr: idea y punto de partida.
 - [libvita2d](https://github.com/xerpi/libvita2d), de xerpi (MIT), y [VitaSDK](https://vitasdk.org/).
 - Autor, código de la aplicación y diseño de interfaz: gugueh / Kirv Studio. La interfaz es diseño propio, inspirado en la estética de la época de auge de la PS Vita.
+
+© 2025–2026 gugueh (Kirv Studio). Todos los derechos reservados. Ver [LICENSE](LICENSE).

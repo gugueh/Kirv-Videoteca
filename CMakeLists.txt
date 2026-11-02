@@ -1,3 +1,4 @@
+# Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
 cmake_minimum_required(VERSION 3.16)
 option(VMP_HOST_TESTS "Build portable tests without VitaSDK" OFF)
 if(NOT VMP_HOST_TESTS)

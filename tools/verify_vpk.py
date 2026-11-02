@@ -1,3 +1,4 @@
+# Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved.
 """Independent structural release gate. Inspects SELF, SFO and imports; never executes them."""
 import argparse
 import hashlib

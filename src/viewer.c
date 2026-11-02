@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 /* Image viewer: PNG, JPEG and BMP. Reads only; never writes. */
 #include "app.h"
 #include "ui.h"

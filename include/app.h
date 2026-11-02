@@ -1,3 +1,4 @@
+/* Copyright (c) 2025-2026 gugueh (Kirv Studio). All rights reserved. */
 #ifndef KIRV_APP_H
 #define KIRV_APP_H
 #include "library.h"
