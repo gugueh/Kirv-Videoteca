@@ -6,7 +6,7 @@ MP4 video player and image viewer for the PS Vita, with a folder-based library, 
 
 Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) by SonicMastr. The application code was rewritten to fix the memory and path-handling bugs found while auditing the original, and it no longer uses plugins or prebuilt modules.
 
-> **Status:** development build (DEV 0.19). Video playback was confirmed on hardware up to DEV 0.16. The image viewer and "New folder" (0.19) build and pass the core test suites, but have **not been tested on a console yet**. Not certified as secure. The on-screen interface is currently in Spanish only.
+> **Status:** DEV 0.19. Video playback is in regular use on a real PS Vita since DEV 0.18. The image viewer and "New folder" are new in 0.19 and are being tested on the console. The on-screen interface is currently in Spanish only.
 
 ## Features
 
