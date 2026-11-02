@@ -3,6 +3,8 @@
 #include <psp2/ctrl.h>
 #include <psp2/io/stat.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/io/dirent.h>
+#include <psp2/kernel/processmgr.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +23,7 @@ static const int tab_icons[TABS]={UI_LIBRARY,UI_SERIES,UI_MOVIES,UI_IMAGE,UI_FOL
 static VmpEntry *listing;
 static char (*flat)[VMP_PATH_CAP];
 static int flat_mode;
+static int picture_access;
 static const char *tab_name(unsigned tab) { return library.language?tabs_en[tab]:tabs_es[tab]; }
 static const char *leaf(const char *path) { const char *p=strrchr(path,'/'); return p?p+1:path; }
 static void title(char *out,size_t cap,const char *name) {
@@ -61,7 +64,12 @@ int app_save(void) {
 failure:
     app_message(L("No se pudo reemplazar el archivo de progreso.","Could not replace the progress file.")); return -1;
 }
+/* Messages disappear after a few seconds so they do not keep covering the grid captions. */
 static void draw_notice(void) {
+    static char shown[sizeof(notice)]; static uint64_t since;
+    uint64_t now=sceKernelGetProcessTimeWide();
+    if(strcmp(shown,notice)) { vmp_copy(shown,sizeof(shown),notice); since=now; }
+    if(notice[0] && now-since>UINT64_C(5000000)) { notice[0]=0; shown[0]=0; }
     if(notice[0]) { ui_panel(24,451,912,39,0); ui_text(37,477,.67f,UI_WHITE,notice,885); }
 }
 #define SETTINGS 8
@@ -214,15 +222,63 @@ static int rename_entry(const char *path,const VmpEntry *e) {
     vmp_rename_progress(&library,from,to); (void)app_save();
     app_message(L("Renombrado.","Renamed.")); return 1;
 }
+/* Counts the files under a library folder (bounded depth and entries). */
+static int count_files(const char *dir,int depth,unsigned *files) {
+    SceUID handle; char io[VMP_PATH_CAP]; int result=0;
+    if(depth>8 || !vmp_path_writable(dir)) return -1;
+    io_path(io,dir); if((handle=sceIoDopen(io))<0) return handle;
+    for(unsigned seen=0;seen<4096;seen++) {
+        SceIoDirent item; char child[VMP_PATH_CAP];
+        memset(&item,0,sizeof(item));
+        if(sceIoDread(handle,&item)<=0) break;
+        if(!memchr(item.d_name,0,sizeof(item.d_name)) || !strcmp(item.d_name,".") || !strcmp(item.d_name,"..")) continue;
+        if(vmp_copy(child,sizeof(child),dir) || vmp_child(child,item.d_name,SCE_S_ISDIR(item.d_stat.st_mode))) { result=-1; break; }
+        if(SCE_S_ISDIR(item.d_stat.st_mode)) { if((result=count_files(child,depth+1,files))<0) break; }
+        else ++*files;
+    }
+    (void)sceIoDclose(handle); return result;
+}
+/* Deletes a library folder and everything in it. The directory is reopened after
+   each removal instead of deleting while a listing is still being read. */
+static int remove_tree(const char *dir,int depth) {
+    char io[VMP_PATH_CAP];
+    if(depth>8 || !vmp_path_writable(dir)) return -1;
+    for(unsigned round=0;round<100000;round++) {
+        SceIoDirent item; SceUID handle; char child[VMP_PATH_CAP]; int found=0,result;
+        io_path(io,dir); if((handle=sceIoDopen(io))<0) return handle;
+        for(unsigned seen=0;seen<4096 && !found;seen++) {
+            memset(&item,0,sizeof(item));
+            if(sceIoDread(handle,&item)<=0) break;
+            found=memchr(item.d_name,0,sizeof(item.d_name)) && strcmp(item.d_name,".") && strcmp(item.d_name,"..");
+        }
+        (void)sceIoDclose(handle);
+        if(!found) break;
+        if(vmp_copy(child,sizeof(child),dir) || vmp_child(child,item.d_name,SCE_S_ISDIR(item.d_stat.st_mode))) return -1;
+        if(SCE_S_ISDIR(item.d_stat.st_mode)) result=remove_tree(child,depth+1);
+        else { io_path(io,child); result=sceIoRemove(io); }
+        if(result<0) return result;
+    }
+    io_path(io,dir); return sceIoRmdir(io);
+}
 static int delete_entry(const char *path,const VmpEntry *e) {
-    char target[VMP_PATH_CAP],io[VMP_PATH_CAP],shown[256]; int result;
+    char target[VMP_PATH_CAP],io[VMP_PATH_CAP],shown[256],question[160]; int result; unsigned files=0;
     if(child_path(target,path,e)) return 0;
-    if(!vmp_path_writable(target)) { read_only(); return 0; }
+    if(!vmp_path_writable(target) || !strcmp(target,VMP_ROOT)) { read_only(); return 0; }
     title(shown,sizeof(shown),e->name);
-    if(!confirm(e->directory?L("¿Eliminar esta carpeta vacía?","Delete this empty folder?"):L("¿Eliminar este archivo?","Delete this file?"),shown)) return 0;
+    if(e->directory) {
+        if((result=count_files(target,0,&files))<0) { io_error(L("No se pudo leer la carpeta","Could not read the folder"),result); return 0; }
+        if(files) snprintf(question,sizeof(question),L("¿Eliminar la carpeta y sus %u archivos?","Delete the folder and its %u files?"),files);
+        else vmp_copy(question,sizeof(question),L("¿Eliminar esta carpeta vacía?","Delete this empty folder?"));
+    } else vmp_copy(question,sizeof(question),L("¿Eliminar este archivo?","Delete this file?"));
+    if(!confirm(question,shown)) return 0;
     io_path(io,target);
     if(e->directory) {
-        if((result=sceIoRmdir(io))<0) { io_error(L("La carpeta no está vacía o no se pudo borrar","The folder is not empty or could not be deleted"),result); return 0; }
+        ui_clear_covers();
+        if((result=remove_tree(target,0))<0) { io_error(L("No se pudo borrar todo el contenido","Could not delete everything"),result); return 1; }
+        for(size_t i=library.count;i-->0;) if(!strncmp(library.items[i].path,target,strlen(target))) {
+            char gone[VMP_PATH_CAP]; vmp_copy(gone,sizeof(gone),library.items[i].path); vmp_forget(&library,gone);
+        }
+        (void)app_save();
     } else {
         char extra[VMP_PATH_CAP];
         if((result=sceIoRemove(io))<0) { io_error(L("No se pudo eliminar","Could not delete"),result); return 0; }
@@ -274,10 +330,9 @@ int app_browser(int (*play)(const char *)) {
             total=0; count=0;
             flat_mode=tab==TAB_IMAGES && !strcmp(path,tab_root);
             if(flat_mode) {
-                int access=app_list_images(entries,flat,VMP_MAX_ENTRIES,&total);
+                picture_access=app_list_images(entries,flat,VMP_MAX_ENTRIES,&total);
                 for(size_t i=0;i<total;i++) map[count++]=i;
                 qsort(map,count,sizeof(*map),newest_first);
-                if(access<0) io_error(L("Sin acceso a las fotos de la consola; se muestran las de la biblioteca","No access to the console's pictures; showing library images"),access);
             } else {
                 (void)app_list(path,entries,&total);
                 for(size_t i=0;i<total;i++) {
@@ -401,6 +456,10 @@ int app_browser(int (*play)(const char *)) {
                 ui_bar(242,222,470,last->position,last->duration); ui_icon(UI_PLAY,790,192,40); ui_text(836,219,.75f,UI_WHITE,L("Continuar","Resume"),85);
             }
             snprintf(caption,sizeof(caption),L("%s  ·  %u elementos","%s  ·  %u items"),tab_name(tab),(unsigned)count); ui_text(25,286+shift,.9f,UI_WHITE,caption,850);
+            if(flat_mode && picture_access<0) {
+                snprintf(caption,sizeof(caption),L("Sin acceso a capturas y fotos de la consola (0x%08X)","No access to the console's screenshots and photos (0x%08X)"),(unsigned)picture_access);
+                ui_text(420,286+shift,.7f,UI_CYAN,caption,520);
+            }
             for(size_t i=(selected/4)*4,col=0;i<count && col<4;i++,col++) {
                 VmpEntry *e=&entries[map[i]]; char child[VMP_PATH_CAP]; int x=25+(int)col*234;
                 if(child_path(child,path,e)) continue;

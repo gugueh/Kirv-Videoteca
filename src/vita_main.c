@@ -224,30 +224,53 @@ static const char *picture_root;
 static int photo_mount_tried;
 
 /* Restricted apps may not read ux0:picture directly; photo0: is the system's photo mount. */
-static int find_pictures(void)
+static int try_open(FILE *log, const char *path)
 {
-    SceUID dir = sceIoDopen(VMP_PICTURES);
-    int first = dir;
-    if (dir >= 0) { (void)sceIoDclose(dir); picture_root = VMP_PICTURES; return 0; }
+    SceUID dir = sceIoDopen(path);
+    if (log) fprintf(log, "dopen %s = %08X\n", path, (unsigned)dir);
+    if (dir >= 0) (void)sceIoDclose(dir);
+    return dir;
+}
+
+/* Each attempt is written to pictures.log so a failure on hardware can be diagnosed. */
+static int find_pictures(FILE *log)
+{
+    int first = try_open(log, VMP_PICTURES);
+    if (first >= 0) { picture_root = VMP_PICTURES; return 0; }
     if (!photo_mount_tried) {
         SceAppUtilInitParam init; SceAppUtilBootParam boot;
+        int ret;
         photo_mount_tried = 1;
         memset(&init, 0, sizeof(init)); memset(&boot, 0, sizeof(boot));
-        (void)sceAppUtilInit(&init, &boot);
-        (void)sceAppUtilPhotoMount();
+        ret = sceAppUtilInit(&init, &boot);
+        if (log) fprintf(log, "sceAppUtilInit = %08X\n", (unsigned)ret);
+        ret = sceAppUtilPhotoMount();
+        if (log) fprintf(log, "sceAppUtilPhotoMount = %08X\n", (unsigned)ret);
     }
-    dir = sceIoDopen(VMP_PHOTOS);
-    if (dir >= 0) { (void)sceIoDclose(dir); picture_root = VMP_PHOTOS; return 0; }
+    if (try_open(log, VMP_PHOTOS) >= 0 || try_open(log, "photo0:") >= 0) { picture_root = VMP_PHOTOS; return 0; }
     picture_root = NULL;
     return first;
 }
 
 int app_list_images(VmpEntry *entries, char (*paths)[VMP_PATH_CAP], size_t cap, size_t *count)
 {
-    int access = find_pictures();
+    FILE *log = fopen("ux0:data/VMPH00001/pictures.log", "w");
+    int access = find_pictures(log);
+    size_t system;
     *count = 0;
     if (picture_root) walk_images(picture_root, 0, entries, paths, cap, count);
+    system = *count;
     walk_images(VMP_ROOT, 0, entries, paths, cap, count);
+    if (log) {
+        fprintf(log, "root=%s system_images=%u library_images=%u\n", picture_root ? picture_root : "-",
+                (unsigned)system, (unsigned)(*count - system));
+        if (picture_root) {
+            char child[VMP_PATH_CAP];
+            vmp_copy(child, sizeof(child), picture_root);
+            if (!vmp_child(child, "SCREENSHOT", 1)) (void)try_open(log, child);
+        }
+        fclose(log);
+    }
     return access;
 }
 
@@ -483,7 +506,7 @@ static int playback(const char *path)
     atomic_init(&audio.stage,0); atomic_init(&audio.rate,0); atomic_init(&audio.channels,0); atomic_init(&audio.bytes,0);
     if(!vmp_path_valid(path,0) || !vmp_is_mp4(path)) return -1;
     diag_lines=0; diag_file=fopen("ux0:data/VMPH00001/playback.log","w");
-    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.20\npath=%s\n",path); fflush(diag_file); }
+    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.21\npath=%s\n",path); fflush(diag_file); }
     diag_snapshot("begin",0,0,0);
     if(!vmp_srt_path(srt,path) && (input=fopen(srt,"rb"))!=NULL) {
         int parsed=vmp_srt_read(input,&subtitles);
@@ -550,7 +573,7 @@ static int playback(const char *path)
                 else if(x>=680) buttons|=SCE_CTRL_SQUARE;
                 else if(x<100) buttons|=SCE_CTRL_DOWN;
                 else if(x<190) buttons|=SCE_CTRL_UP;
-            } else if(y<392) buttons|=SCE_CTRL_CROSS;
+            } else if(y<392) buttons|=SCE_CTRL_TRIANGLE; /* tapping the picture hides the controls; pause is the centre button */
         }
         if(buttons&SCE_CTRL_CIRCLE) { ret=0; break; }
         if(buttons&SCE_CTRL_SQUARE) show_subtitles=!show_subtitles;
