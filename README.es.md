@@ -5,7 +5,7 @@ Reproductor de vídeos MP4 y visor de imágenes para PS Vita, con biblioteca org
 
 Se inspira en [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) de SonicMastr. El código de la aplicación está reescrito para corregir los fallos de memoria y de rutas encontrados al auditar el original, y ya no usa plugins ni módulos precompilados.
 
-> **Estado:** DEV 0.21. La reproducción de vídeo se usa a diario en una PS Vita real desde la DEV 0.18. El visor de imágenes, las fotos de la consola, renombrar/eliminar y la interfaz en inglés son nuevos en la 0.19–0.20 y se están probando en la consola.
+> **Estado:** DEV 0.22. La reproducción de vídeo se usa a diario en una PS Vita real desde la DEV 0.18. El visor de imágenes, las fotos de la consola, renombrar/eliminar y la interfaz en inglés son nuevos en la 0.19–0.20 y se están probando en la consola.
 
 ## Funciones
 

@@ -48,7 +48,7 @@ else()
     list(APPEND KIRV_UI_FILES FILE assets/ui/${asset}.png assets/ui/${asset}.png)
   endforeach()
   vita_create_vpk(VitaMediaPlayerHardened-DEV.vpk VMPH00001 eboot.bin
-    VERSION 00.21 NAME "Kirv Videoteca DEV"
+    VERSION 00.22 NAME "Kirv Videoteca DEV"
     FILE assets/icon0.png sce_sys/icon0.png
     FILE assets/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
     FILE assets/livearea/contents/startup.png sce_sys/livearea/contents/startup.png

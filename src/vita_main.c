@@ -193,21 +193,37 @@ static int next_entry(void *context, VmpEntry *out)
     return 1;
 }
 
-/* Bounded recursive walk: depth, entries read per folder and results are all capped. */
+/* Directory paths are kept with a trailing slash; sceIo gets them without it. */
+static void io_dir(char *out, const char *dir)
+{
+    size_t n;
+    vmp_copy(out, VMP_PATH_CAP, dir);
+    n = strlen(out);
+    if (n > 1 && out[n-1] == '/' && out[n-2] != ':') out[n-1] = 0;
+}
+
+/* Bounded recursive walk: depth, entries read per folder and results are all capped.
+   The first level is written to the log so an empty result can be explained. */
 static void walk_images(const char *dir, int depth, VmpEntry *entries, char (*paths)[VMP_PATH_CAP],
-                        size_t cap, size_t *count)
+                        size_t cap, size_t *count, FILE *log)
 {
     SceUID handle;
-    if (depth > 4 || *count >= cap || (handle = sceIoDopen(dir)) < 0) return;
+    char io[VMP_PATH_CAP];
+    if (depth > 4 || *count >= cap) return;
+    io_dir(io, dir);
+    handle = sceIoDopen(io);
+    if (log && depth <= 1) fprintf(log, "dopen %s = %08X\n", io, (unsigned)handle);
+    if (handle < 0) return;
     for (unsigned seen = 0; seen < VMP_MAX_ENTRIES && *count < cap; ++seen) {
         SceIoDirent item;
         char child[VMP_PATH_CAP];
         memset(&item, 0, sizeof(item));
         if (sceIoDread(handle, &item) <= 0) break;
+        if (log && depth == 0 && seen < 40) fprintf(log, "  entry %s mode=%X\n", item.d_name, (unsigned)item.d_stat.st_mode);
         if (!memchr(item.d_name, 0, sizeof(item.d_name)) || !strcmp(item.d_name, ".") ||
             !strcmp(item.d_name, "..") || vmp_copy(child, sizeof(child), dir)) continue;
         if (SCE_S_ISDIR(item.d_stat.st_mode)) {
-            if (!vmp_child(child, item.d_name, 1)) walk_images(child, depth + 1, entries, paths, cap, count);
+            if (!vmp_child(child, item.d_name, 1)) walk_images(child, depth + 1, entries, paths, cap, count, log);
         } else if (SCE_S_ISREG(item.d_stat.st_mode) && vmp_image_kind(item.d_name) &&
                    !vmp_child(child, item.d_name, 0) &&
                    !vmp_copy(entries[*count].name, sizeof(entries[*count].name), item.d_name)) {
@@ -220,55 +236,57 @@ static void walk_images(const char *dir, int depth, VmpEntry *entries, char (*pa
     (void)sceIoDclose(handle);
 }
 
-static const char *picture_root;
 static int photo_mount_tried;
 
-/* Restricted apps may not read ux0:picture directly; photo0: is the system's photo mount. */
-static int try_open(FILE *log, const char *path)
+static void probe(FILE *log, const char *path)
 {
+    SceIoStat st;
     SceUID dir = sceIoDopen(path);
-    if (log) fprintf(log, "dopen %s = %08X\n", path, (unsigned)dir);
+    int stat;
+    memset(&st, 0, sizeof(st));
+    stat = sceIoGetstat(path, &st);
+    if (log) fprintf(log, "probe %s dopen=%08X getstat=%08X mode=%X\n", path, (unsigned)dir, (unsigned)stat, (unsigned)st.st_mode);
     if (dir >= 0) (void)sceIoDclose(dir);
-    return dir;
 }
 
-/* Each attempt is written to pictures.log so a failure on hardware can be diagnosed. */
-static int find_pictures(FILE *log)
-{
-    int first = try_open(log, VMP_PICTURES);
-    if (first >= 0) { picture_root = VMP_PICTURES; return 0; }
-    if (!photo_mount_tried) {
-        SceAppUtilInitParam init; SceAppUtilBootParam boot;
-        int ret;
-        photo_mount_tried = 1;
-        memset(&init, 0, sizeof(init)); memset(&boot, 0, sizeof(boot));
-        ret = sceAppUtilInit(&init, &boot);
-        if (log) fprintf(log, "sceAppUtilInit = %08X\n", (unsigned)ret);
-        ret = sceAppUtilPhotoMount();
-        if (log) fprintf(log, "sceAppUtilPhotoMount = %08X\n", (unsigned)ret);
-    }
-    if (try_open(log, VMP_PHOTOS) >= 0 || try_open(log, "photo0:") >= 0) { picture_root = VMP_PHOTOS; return 0; }
-    picture_root = NULL;
-    return first;
-}
-
+/* ux0:picture is tried first; restricted apps may only see it through the
+   photo0: mount, which needs SceAppUtil. Every attempt goes to pictures.log. */
 int app_list_images(VmpEntry *entries, char (*paths)[VMP_PATH_CAP], size_t cap, size_t *count)
 {
     FILE *log = fopen("ux0:data/VMPH00001/pictures.log", "w");
-    int access = find_pictures(log);
-    size_t system;
+    size_t system = 0;
+    int access;
+    SceUID dir;
     *count = 0;
-    if (picture_root) walk_images(picture_root, 0, entries, paths, cap, count);
-    system = *count;
-    walk_images(VMP_ROOT, 0, entries, paths, cap, count);
-    if (log) {
-        fprintf(log, "root=%s system_images=%u library_images=%u\n", picture_root ? picture_root : "-",
-                (unsigned)system, (unsigned)(*count - system));
-        if (picture_root) {
-            char child[VMP_PATH_CAP];
-            vmp_copy(child, sizeof(child), picture_root);
-            if (!vmp_child(child, "SCREENSHOT", 1)) (void)try_open(log, child);
+    if (log) fprintf(log, "Kirv DEV 0.22\n");
+    walk_images(VMP_PICTURES, 0, entries, paths, cap, count, log);
+    if (!*count) {
+        if (!photo_mount_tried) {
+            SceAppUtilInitParam init; SceAppUtilBootParam boot;
+            int ret;
+            photo_mount_tried = 1;
+            memset(&init, 0, sizeof(init)); memset(&boot, 0, sizeof(boot));
+            ret = sceAppUtilInit(&init, &boot);
+            if (log) fprintf(log, "sceAppUtilInit = %08X\n", (unsigned)ret);
+            ret = sceAppUtilPhotoMount();
+            if (log) fprintf(log, "sceAppUtilPhotoMount = %08X\n", (unsigned)ret);
         }
+        walk_images(VMP_PHOTOS, 0, entries, paths, cap, count, log);
+    }
+    system = *count;
+    if (log && !system) {
+        probe(log, "ux0:picture/SCREENSHOT"); probe(log, "ux0:picture/SCREENSHOT/");
+        probe(log, "ux0:/picture/SCREENSHOT"); probe(log, "ux0:picture/SCREENSHOT/bg");
+        probe(log, "ux0:picture/SCREENSHOT/bg/2025-11-22-082540.png");
+        probe(log, "photo0:SCREENSHOT"); probe(log, "photo0:/SCREENSHOT");
+    }
+    /* Report the most telling error when no console picture was readable. */
+    dir = sceIoDopen("ux0:picture/SCREENSHOT");
+    access = system ? 0 : dir < 0 ? dir : -1;
+    if (dir >= 0) (void)sceIoDclose(dir);
+    walk_images(VMP_ROOT, 0, entries, paths, cap, count, NULL);
+    if (log) {
+        fprintf(log, "system_images=%u library_images=%u\n", (unsigned)system, (unsigned)(*count - system));
         fclose(log);
     }
     return access;
@@ -506,7 +524,7 @@ static int playback(const char *path)
     atomic_init(&audio.stage,0); atomic_init(&audio.rate,0); atomic_init(&audio.channels,0); atomic_init(&audio.bytes,0);
     if(!vmp_path_valid(path,0) || !vmp_is_mp4(path)) return -1;
     diag_lines=0; diag_file=fopen("ux0:data/VMPH00001/playback.log","w");
-    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.21\npath=%s\n",path); fflush(diag_file); }
+    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.22\npath=%s\n",path); fflush(diag_file); }
     diag_snapshot("begin",0,0,0);
     if(!vmp_srt_path(srt,path) && (input=fopen(srt,"rb"))!=NULL) {
         int parsed=vmp_srt_read(input,&subtitles);
