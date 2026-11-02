@@ -47,8 +47,8 @@ else()
   foreach(asset background logo library series movies folder play pause next previous volume subtitles settings search sort favorite check back image)
     list(APPEND KIRV_UI_FILES FILE assets/ui/${asset}.png assets/ui/${asset}.png)
   endforeach()
-  vita_create_vpk(VitaMediaPlayerHardened-DEV.vpk VMPH00001 eboot.bin
-    VERSION 00.23 NAME "Kirv Videoteca DEV"
+  vita_create_vpk(KirvVideoteca.vpk VMPH00001 eboot.bin
+    VERSION 00.10 NAME "Kirv Videoteca"
     FILE assets/icon0.png sce_sys/icon0.png
     FILE assets/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
     FILE assets/livearea/contents/startup.png sce_sys/livearea/contents/startup.png

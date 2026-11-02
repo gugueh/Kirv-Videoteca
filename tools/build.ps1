@@ -30,7 +30,7 @@ try {
     if ($LASTEXITCODE) { throw 'Fallo la configuracion.' }
     & $cmakeExecutable --build $buildPath
     if ($LASTEXITCODE) { throw 'Fallo la compilacion.' }
-    Write-Output "VPK generado: $(Join-Path $buildPath 'VitaMediaPlayerHardened-DEV.vpk')"
+    Write-Output "VPK generado: $(Join-Path $buildPath 'KirvVideoteca.vpk')"
     Write-Output 'Ejecuta tools/verify_vpk.py sobre el VPK antes de instalarlo.'
 } finally {
     $env:VITASDK = $previousSdk

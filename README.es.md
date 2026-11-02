@@ -1,27 +1,32 @@
 # Kirv Videoteca
+
 **Español** · [English](README.md)
 
-Reproductor de vídeos MP4 y visor de imágenes para PS Vita, con biblioteca organizada por carpetas, control táctil y botones.
+Reproductor de videos MP4 y visor de imágenes para PS Vita, con biblioteca organizada por carpetas, control táctil y botones. Incluye una herramienta de PC que prepara los videos y los envía a la consola.
+
+## Por qué esta estética
+
+La PS Vita tuvo una identidad visual propia: burbujas brillantes, degradados azules, paneles translúcidos y la LiveArea. Muchas apps caseras se ven como menús de depuración o copian el estilo de otros sistemas. Kirv Videoteca recupera el lenguaje visual de la época de auge de la consola para que se sienta parte del sistema y no un agregado. La herramienta de PC usa los mismos colores, iconos y fondo, para que las dos partes se vean como un solo producto.
+
+> **Estado:** v0.1, primera versión publicada. La reproducción de video se usa a diario en una PS Vita real; el visor de imágenes, las fotos de la consola, la gestión de archivos y la herramienta de PC se probaron en la consola.
 
 Se inspira en [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) de SonicMastr. El código de la aplicación está reescrito para corregir los fallos de memoria y de rutas encontrados al auditar el original, y ya no usa plugins ni módulos precompilados.
 
-> **Estado:** DEV 0.23. La reproducción de vídeo se usa a diario en una PS Vita real desde la DEV 0.18. El visor de imágenes, las fotos de la consola, renombrar/eliminar y la interfaz en inglés son nuevos en la 0.19–0.20 y se están probando en la consola.
-
 ## Funciones
 
-- **Vídeo:** MP4 (H.264/AAC recomendado), progreso guardado, reanudación, marca de visto, siguiente vídeo automático, subtítulos externos `.srt`, miniaturas al salir del vídeo.
+- **Video:** MP4 (H.264/AAC recomendado), progreso guardado, reanudación, marca de visto, siguiente video automático, subtítulos externos `.srt`, miniaturas al salir del video.
 - **Imágenes:** PNG, JPEG y BMP (24/32 bits), incluidas las capturas y fotos de la propia consola (`ux0:picture`, solo lectura). La pestaña Imágenes muestra todas, de la más nueva a la más vieja, con miniaturas. Zoom con X/cuadrado, mover con la cruceta o el dedo, cambiar de imagen con L/R, izquierda/derecha, deslizando o tocando los bordes.
-- **Archivos:** pestañas Todo, Series, Películas, Imágenes y Carpetas. Opciones → **Nueva carpeta**, **Renombrar seleccionado** y **Eliminar seleccionado** (archivos y carpetas, con confirmación) con el teclado del sistema. Subtítulos, miniaturas y progreso acompañan al vídeo renombrado o eliminado.
+- **Archivos:** pestañas Todo, Series, Películas, Imágenes y Carpetas. Opciones → **Nueva carpeta**, **Renombrar seleccionado** y **Eliminar seleccionado** (archivos y carpetas, con confirmación) con el teclado del sistema. Subtítulos, miniaturas y progreso acompañan al video renombrado o eliminado.
 - Interfaz en **español o inglés** (Ajustes → Idioma). El progreso se guarda cada 10 segundos y al pausar.
 
 ## Dos partes
 
 - **App de PS Vita** (`src/`, `assets/`): el reproductor.
-- **Herramienta de PC** (`pc/`): arrastras vídeos, convierte solo lo que la Vita necesita (por ejemplo audio HE-AAC a AAC-LC, o vídeo HEVC/1080p a H.264 720p) y los envía por el FTP de VitaShell. Versión para Windows con ffmpeg incluido en cada Release.
+- **Herramienta de PC** (`pc/`): arrastras videos, convierte solo lo que la Vita necesita (por ejemplo audio HE-AAC a AAC-LC, o video HEVC/1080p a H.264 720p) y los envía por el FTP de VitaShell. Versión para Windows con ffmpeg incluido en cada Release.
 
 ## Instalación y uso
 
-1. Instala el `.vpk` con VitaShell (o similar). La burbuja se llama **Kirv Videoteca DEV**.
+1. Instala el `.vpk` con VitaShell (o similar). La burbuja se llama **Kirv Videoteca**.
 2. Copia tus archivos a `ux0:data/VMPH00001/video/`:
 
 ```text
@@ -40,7 +45,7 @@ Las carpetas `Series/` y `Peliculas/` son opcionales: si existen, esas pestañas
 
 ### Controles
 
-| | Biblioteca | Vídeo | Imagen |
+| | Biblioteca | Video | Imagen |
 |---|---|---|---|
 | X | abrir | pausa | acercar |
 | O | volver | volver | volver |
@@ -52,7 +57,7 @@ Las carpetas `Series/` y `Peliculas/` son opcionales: si existen, esas pestañas
 
 ## Límites
 
-- Vídeo: SceAvPlayer, hasta 1280 × 736, audio mono/estéreo PCM 16 bits.
+- Video: SceAvPlayer, hasta 1280 × 736, audio mono/estéreo PCM 16 bits.
 - Imágenes: JPEG hasta 16384 px por lado y 48 MB (se decodifica reducido); PNG y BMP hasta 8 megapíxeles, 4096 px por lado y 12 MB.
 - Las fotos de la consola son de solo lectura. Si el sistema no deja leerlas, la pestaña Imágenes muestra las de la biblioteca y el código de error.
 - Rutas de menos de 512 bytes, nombres de hasta 255 bytes, 1.024 entradas por carpeta.
@@ -61,7 +66,7 @@ Las carpetas `Series/` y `Peliculas/` son opcionales: si existen, esas pestañas
 
 ## Seguridad
 
-Esta variante usa un SELF restringido (`authid=0x2F00000000000002`), sin taiHEN, sin red y sin SUPRX incluidos. Solo escribe dentro de `ux0:data/VMPH00001/` (preferencias, registro, miniaturas junto a los vídeos y las carpetas y archivos que crees, renombres o elimines ahí). El verificador `tools/verify_vpk.py` rechaza paquetes con otros permisos o archivos inesperados; es una comprobación estructural, no una auditoría completa.
+Esta variante usa un SELF restringido (`authid=0x2F00000000000002`), sin taiHEN, sin red y sin SUPRX incluidos. Solo escribe dentro de `ux0:data/VMPH00001/` (preferencias, registro, miniaturas junto a los videos y las carpetas y archivos que crees, renombres o elimines ahí). El verificador `tools/verify_vpk.py` rechaza paquetes con otros permisos o archivos inesperados; es una comprobación estructural, no una auditoría completa.
 
 ## Compilar
 
@@ -102,7 +107,7 @@ include/   cabeceras
 assets/    iconos, fondos y LiveArea
 tests/     pruebas del núcleo y del paquete
 tools/     build.ps1 y verify_vpk.py
-pc/        herramienta de PC: convertir y enviar vídeos a la Vita
+pc/        herramienta de PC: convertir y enviar videos a la Vita
 licenses/  avisos de bibliotecas de terceros
 ```
 

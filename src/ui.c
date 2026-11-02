@@ -95,7 +95,7 @@ void ui_welcome(void) {
     ui_text(367,359,1.55f,UI_WHITE,"Videoteca",300);
     ui_panel(350,407,260,55,1); ui_icon(UI_PLAY,370,416,38);
     ui_text(426,443,1.0f,UI_WHITE,L("Iniciar","Start"),160);
-    ui_text(30,520,.65f,UI_MUTED,"Kirv Studio  /  DEV 0.23",500);
+    ui_text(30,520,.65f,UI_MUTED,"Kirv Studio  /  v0.1",500);
 }
 void ui_splash(float t) {
     float alpha=t<.25f?t/.25f:t>.75f?(1-t)/.25f:1, scale=1.6f+.12f*t;

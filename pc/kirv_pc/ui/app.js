@@ -1,14 +1,14 @@
 "use strict";
 const TEXT = {
   es: {
-    drop: "Arrastra vídeos o carpetas", addFiles: "Vídeos", addFolder: "Carpeta", add: "Agregar",
+    drop: "Arrastra videos o carpetas", addFiles: "Videos", addFolder: "Carpeta", add: "Agregar",
     convert: "Convertir", send: "Enviar a la Vita", cancel: "Cancelar", port: "Puerto",
     test: "Conectar", options: "Opciones", output: "Copias convertidas", keep: "Conservar copias",
-    analysing: "Analizando", ready: "Listo", encode_audio: "Audio", encode_video: "Vídeo", remux: "Formato",
+    analysing: "Analizando", ready: "Listo", encode_audio: "Audio", encode_video: "Video", remux: "Formato",
     unsupported: "No compatible", converting: "Convirtiendo", sending: "Enviando", done: "Convertido",
     sent: "En la Vita ✓", failed: "Error", connected: "Conectado", noHost: "Falta la IP",
     noFfmpeg: "Falta ffmpeg", finished: "Listo", cancelled: "Cancelado", empty: "Sin carpetas", subs: "SRT",
-    count: (n, c, s) => `${n} ${n === 1 ? "vídeo" : "vídeos"} · ${c} a convertir · ${s}`, nothing: "",
+    count: (n, c, s) => `${n} ${n === 1 ? "video" : "videos"} · ${c} a convertir · ${s}`, nothing: "",
   },
   en: {
     drop: "Drop videos or folders", addFiles: "Videos", addFolder: "Folder", add: "Add",

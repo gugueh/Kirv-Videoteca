@@ -76,7 +76,7 @@ static void draw_notice(void) {
 static void settings(void) {
     size_t selected=0;
     for(;;) {
-        const char *labels[SETTINGS]={L("Continuar donde lo dejé","Resume where I left off"),L("Siguiente vídeo automático","Autoplay next video"),
+        const char *labels[SETTINGS]={L("Continuar donde lo dejé","Resume where I left off"),L("Siguiente video automático","Autoplay next video"),
             L("Saltar al avanzar","Seek step"),L("Ajuste de imagen","Picture fit"),L("Mostrar controles","Show controls for"),
             L("Subtítulos externos","External subtitles"),L("Volumen","Volume"),L("Idioma","Language")};
         unsigned b=app_buttons(); char value[64];
@@ -499,7 +499,7 @@ int app_browser(int (*play)(const char *)) {
                     if(e->directory) vmp_copy(folder,sizeof(folder),child); else parent_of(folder,child);
                     ui_cover(e->directory?folder:child,627,159,294,166,"Kirv Studio"); title(caption,sizeof(caption),e->name);
                     ui_text(632,355,.95f,UI_WHITE,caption,280);
-                    ui_text(632,383,.75f,UI_MUTED,e->directory?L("Carpeta local","Local folder"):is_image(e)?(vmp_path_writable(child)?L("Imagen","Image"):L("Imagen de la consola","Console picture")):L("Vídeo MP4","MP4 video"),280);
+                    ui_text(632,383,.75f,UI_MUTED,e->directory?L("Carpeta local","Local folder"):is_image(e)?(vmp_path_writable(child)?L("Imagen","Image"):L("Imagen de la consola","Console picture")):L("Video MP4","MP4 video"),280);
                     if(!e->directory && !is_image(e)) { const VmpProgress *p=vmp_progress(&library,child); if(p) { char tm[24]; ui_time(tm,sizeof(tm),p->position); snprintf(caption,sizeof(caption),"%s  %s",p->watched?L("Visto","Watched"):L("En curso","In progress"),tm); ui_text(632,413,.75f,UI_CYAN,caption,280); } }
                 }
             } else ui_text(45,203,.9f,UI_MUTED,L("No hay MP4, imágenes o carpetas.","No MP4s, images or folders."),500);

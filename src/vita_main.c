@@ -258,7 +258,7 @@ int app_list_images(VmpEntry *entries, char (*paths)[VMP_PATH_CAP], size_t cap, 
     int access;
     SceUID dir;
     *count = 0;
-    if (log) fprintf(log, "Kirv DEV 0.23\n");
+    if (log) fprintf(log, "Kirv Videoteca v0.1\n");
     walk_images(VMP_PICTURES, 0, entries, paths, cap, count, log);
     if (!*count) {
         if (!photo_mount_tried) {
@@ -524,7 +524,7 @@ static int playback(const char *path)
     atomic_init(&audio.stage,0); atomic_init(&audio.rate,0); atomic_init(&audio.channels,0); atomic_init(&audio.bytes,0);
     if(!vmp_path_valid(path,0) || !vmp_is_mp4(path)) return -1;
     diag_lines=0; diag_file=fopen("ux0:data/VMPH00001/playback.log","w");
-    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.23\npath=%s\n",path); fflush(diag_file); }
+    if(diag_file) { fprintf(diag_file,"Kirv Videoteca v0.1\npath=%s\n",path); fflush(diag_file); }
     diag_snapshot("begin",0,0,0);
     if(!vmp_srt_path(srt,path) && (input=fopen(srt,"rb"))!=NULL) {
         int parsed=vmp_srt_read(input,&subtitles);
@@ -662,7 +662,7 @@ static int playback(const char *path)
         if(!paused && now-interaction>(uint64_t)vmp_hide_seconds(&library)*1000000) controls_visible=0;
         app_frame_begin();
         if(have_video) vita2d_draw_texture(cached,0,0);
-        else { ui_background(); ui_text(300,250,1.1f,UI_WHITE,L("Preparando vídeo...","Loading video..."),600); }
+        else { ui_background(); ui_text(300,250,1.1f,UI_WHITE,L("Preparando video...","Loading video..."),600); }
         if(show_subtitles) {
             const char *cue=vmp_srt_at(&subtitles,time_ms);
             if(cue && cue[0]) {

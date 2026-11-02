@@ -1,12 +1,16 @@
 # Kirv Videoteca
 
-MP4 video player and image viewer for the PS Vita, with a folder-based library, touch and button controls.
-
 [Español](README.es.md) · **English**
 
-Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) by SonicMastr. The application code was rewritten to fix the memory and path-handling bugs found while auditing the original, and it no longer uses plugins or prebuilt modules.
+MP4 video player and image viewer for the PS Vita, with a folder-based library, touch and button controls. It comes with a PC tool that prepares videos and sends them to the console.
 
-> **Status:** DEV 0.23. Video playback is in regular use on a real PS Vita since DEV 0.18. The image viewer, console pictures, rename/delete and the English interface are new in 0.19–0.20 and are being tested on the console.
+## Why this look
+
+The PS Vita had a visual identity of its own: glossy bubbles, blue gradients, translucent panels and the LiveArea. Many homebrew apps look like debug menus or borrow the style of other systems. Kirv Videoteca brings back the visual language of the console's heyday so it feels like part of the system rather than an add-on. The PC tool uses the same colours, icons and background, so both parts read as one product.
+
+> **Status:** v0.1, first public release. Video playback is in daily use on a real PS Vita; the image viewer, console pictures, file management and the PC tool were tested on the console.
+
+Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) by SonicMastr. The application code was rewritten to fix the memory and path-handling bugs found while auditing the original, and it no longer uses plugins or prebuilt modules.
 
 ## Features
 
@@ -22,7 +26,7 @@ Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player)
 
 ## Install and use
 
-1. Install the `.vpk` with VitaShell (or similar). The bubble is named **Kirv Videoteca DEV**.
+1. Install the `.vpk` with VitaShell (or similar). The bubble is named **Kirv Videoteca**.
 2. Copy your files to `ux0:data/VMPH00001/video/`:
 
 ```text
