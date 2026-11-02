@@ -178,6 +178,7 @@ document.addEventListener("click", async (e) => {
   if (a === "convert") start(false);
   if (a === "send") start(true);
   if (a === "cancel" && api) api.cancel();
+  if (a === "studio" && api) api.open_studio();
 });
 ["host", "port", "output", "keep"].forEach((id) => $("#" + id).addEventListener("change", saveSettings));
 ["dragenter", "dragover"].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); $("#drop").classList.add("hover"); $("#list").classList.add("hover"); }));
@@ -211,6 +212,9 @@ function demo() {
     ] };
 }
 
-window.addEventListener("pywebviewready", init);
-if (window.pywebview && window.pywebview.api && window.pywebview.api.state) init();
-setTimeout(() => { if (!api) init(); }, 600);
+/* Wait for the Python bridge; the sample list is only for previews opened with ?demo. */
+function boot() {
+  if ((window.pywebview && window.pywebview.api && window.pywebview.api.state) || location.search.includes("demo")) init();
+  else setTimeout(boot, 100);
+}
+boot();

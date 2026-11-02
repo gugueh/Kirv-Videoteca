@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import threading
+import webbrowser
 
 import webview
 from webview.dom import DOMEventHandler
@@ -36,9 +37,9 @@ def sync_assets():
 
 class Api:
     def __init__(self):
-        self.window = None
+        self._window = None
         self.items = []
-        self.lock = threading.Lock()
+        self._lock = threading.Lock()
         self.busy = False
         self.stop = False
         self.settings = dict(DEFAULTS)
@@ -50,8 +51,8 @@ class Api:
 
     # --- helpers -------------------------------------------------------
     def _emit(self, event, data):
-        if self.window:
-            self.window.evaluate_js("window.kirv && kirv.on(%s, %s)" % (json.dumps(event), json.dumps(data)))
+        if self._window:
+            self._window.evaluate_js("window.kirv && kirv.on(%s, %s)" % (json.dumps(event), json.dumps(data)))
 
     def _public(self, item):
         return {k: v for k, v in item.items() if not k.startswith("_")}
@@ -70,7 +71,7 @@ class Api:
 
     def pick(self, folder):
         kind = webview.FileDialog.FOLDER if folder else webview.FileDialog.OPEN
-        chosen = self.window.create_file_dialog(kind, allow_multiple=not folder,
+        chosen = self._window.create_file_dialog(kind, allow_multiple=not folder,
                                                 file_types=() if folder else ("Videos (*.mp4;*.mkv;*.avi;*.mov;*.m4v;*.webm;*.ts;*.wmv)",))
         if chosen:
             self.add(list(chosen))
@@ -84,7 +85,7 @@ class Api:
                     found += [os.path.join(root, f) for f in sorted(files) if media.is_video(f)]
             elif media.is_video(path):
                 found.append(path)
-        with self.lock:
+        with self._lock:
             known = {i["path"] for i in self.items}
             new = []
             for path in found:
@@ -136,6 +137,9 @@ class Api:
                 box.close()
         except Exception as error:
             return {"ok": False, "error": str(error)}
+
+    def open_studio(self):
+        webbrowser.open("https://www.behance.net/guguehh")
 
     def cancel(self):
         self.stop = True
@@ -232,7 +236,7 @@ def main():
     api = Api()
     window = webview.create_window("Kirv Videoteca · PC", resource("ui", "index.html"), js_api=api,
                                    width=1100, height=720, min_size=(900, 600), background_color="#0F1C2E")
-    api.window = window
+    api._window = window
 
     def on_drop(event):
         paths = [f.get("pywebviewFullPath") for f in event.get("dataTransfer", {}).get("files", [])]

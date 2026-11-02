@@ -32,7 +32,8 @@ img { image-rendering: auto; }
 }
 .bar .icon { width: 34px; height: 34px; }
 .bar .title { font-size: 20px; flex: 1; }
-.bar .studio { color: var(--muted); }
+.bar .studio { color: var(--muted); font-size: 15px; }
+.bar .studio:hover { color: var(--cyan); }
 .bar .clock { min-width: 48px; text-align: right; }
 .foot { border-bottom: 0; border-top: 1px solid var(--rule); height: 58px; }
 .spacer { flex: 1; }
