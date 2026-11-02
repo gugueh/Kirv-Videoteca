@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$VitaSdk = $env:VITASDK,
     [string]$CMake = 'cmake',
     [string]$Ninja = 'ninja',
@@ -26,7 +26,7 @@ $previousPath = $env:PATH
 try {
     $env:VITASDK = $sdkDirectory.Replace('\','/')
     $env:PATH = "$(Join-Path $sdkDirectory 'bin');$env:PATH"
-    & $cmakeExecutable -S $sourceDirectory -B $buildPath -G Ninja -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_MAKE_PROGRAM=$ninjaExecutable"
+    & $cmakeExecutable -S $sourceDirectory -B $buildPath -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_MAKE_PROGRAM=$ninjaExecutable"
     if ($LASTEXITCODE) { throw 'Fallo la configuracion.' }
     & $cmakeExecutable --build $buildPath
     if ($LASTEXITCODE) { throw 'Fallo la compilacion.' }

@@ -34,6 +34,30 @@ int main(void) {
     for(unsigned i=0;i<80;i++) { snprintf(path,sizeof(path),VMP_ROOT"%u.mp4",i); assert(!vmp_remember(&a,path,i,100,0)); }
     assert(a.count==VMP_HISTORY && !vmp_progress(&a,VMP_ROOT"0.mp4"));
     assert(vmp_progress(&a,VMP_ROOT"79.mp4")->position==79);
+    /* Language byte (format 02) and reading the older format 01. */
+    vmp_library_defaults(&a); a.language=1;
+    f=tmpfile(); assert(f); assert(!vmp_library_write(f,&a)); rewind(f);
+    n=fread(bytes,1,sizeof(bytes),f); fclose(f); assert(n==17 && !memcmp(bytes,"KIRVUI02",8) && bytes[16]==1);
+    f=tmpfile(); assert(f); assert(fwrite(bytes,1,n,f)==n); rewind(f);
+    assert(!vmp_library_read(f,&b) && b.language==1); fclose(f);
+    bytes[16]=2; f=tmpfile(); assert(f); assert(fwrite(bytes,1,n,f)==n); rewind(f);
+    assert(vmp_library_read(f,&b)<0); fclose(f);
+    memcpy(bytes,"KIRVUI01",8); f=tmpfile(); assert(f); assert(fwrite(bytes,1,16,f)==16); rewind(f);
+    assert(!vmp_library_read(f,&b) && b.language==0); fclose(f);
+    /* Forget and rename keep the history consistent with the files. */
+    vmp_library_defaults(&a);
+    assert(!vmp_remember(&a,VMP_ROOT"Serie/01.mp4",10,100,0));
+    assert(!vmp_remember(&a,VMP_ROOT"Serie/02.mp4",20,100,0));
+    assert(!vmp_remember(&a,VMP_ROOT"Otra.mp4",30,100,0));
+    vmp_rename_progress(&a,VMP_ROOT"Serie/",VMP_ROOT"Show/");
+    assert(vmp_progress(&a,VMP_ROOT"Show/01.mp4") && vmp_progress(&a,VMP_ROOT"Show/02.mp4"));
+    assert(!vmp_progress(&a,VMP_ROOT"Serie/01.mp4"));
+    vmp_rename_progress(&a,VMP_ROOT"Otra.mp4",VMP_ROOT"Nueva.mp4");
+    assert(vmp_progress(&a,VMP_ROOT"Nueva.mp4")->position==30);
+    vmp_rename_progress(&a,VMP_ROOT"Nueva.mp4",VMP_ROOT"Nueva.txt");
+    assert(vmp_progress(&a,VMP_ROOT"Nueva.mp4"));
+    vmp_forget(&a,VMP_ROOT"Show/01.mp4"); assert(a.count==2 && !vmp_progress(&a,VMP_ROOT"Show/01.mp4"));
+    vmp_forget(&a,VMP_ROOT"missing.mp4"); assert(a.count==2);
     puts("PASS: history round trip, every truncation, malformed options, trailing data, path boundaries, MRU eviction.");
     return 0;
 }

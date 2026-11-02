@@ -80,7 +80,8 @@ int vmp_image_probe(FILE *input, int kind, uint64_t file_bytes, unsigned *width,
     unsigned w = 0, ht = 0;
     if (!input || !width || !height) return -1;
     *width = *height = 0;
-    if (!file_bytes || file_bytes > VMP_IMAGE_MAX_BYTES || fseek(input, 0, SEEK_SET)) return -1;
+    if (!file_bytes || file_bytes > (kind == VMP_IMAGE_JPEG ? VMP_JPEG_MAX_BYTES : VMP_IMAGE_MAX_BYTES) ||
+        fseek(input, 0, SEEK_SET)) return -1;
     if (kind == VMP_IMAGE_PNG) {
         if (fread(h, 1, 32, input) != 32 || memcmp(h, "\211PNG\r\n\032\n", 8) ||
             be32(h + 8) != 13 || memcmp(h + 12, "IHDR", 4)) return -1;
@@ -96,8 +97,9 @@ int vmp_image_probe(FILE *input, int kind, uint64_t file_bytes, unsigned *width,
         bits = (unsigned)h[28] | ((unsigned)h[29] << 8); compression = le32(h + 30);
         if ((bits != 24 && bits != 32) || compression != 0) return -1;
     } else return -1;
-    if (!w || !ht || w > VMP_IMAGE_MAX_SIDE || ht > VMP_IMAGE_MAX_SIDE ||
-        (uint64_t)w * ht > VMP_IMAGE_MAX_PIXELS) return -1;
+    if (!w || !ht) return -1;
+    if (kind == VMP_IMAGE_JPEG ? (w > VMP_JPEG_MAX_SIDE || ht > VMP_JPEG_MAX_SIDE) :
+        (w > VMP_IMAGE_MAX_SIDE || ht > VMP_IMAGE_MAX_SIDE || (uint64_t)w * ht > VMP_IMAGE_MAX_PIXELS)) return -1;
     *width = w; *height = ht;
     return 0;
 }
@@ -140,6 +142,46 @@ int vmp_utf16_to_utf8(const uint16_t *text, char *out, size_t cap)
     return 0;
 }
 
+int vmp_utf8_to_utf16(const char *text, uint16_t *out, size_t cap)
+{
+    size_t n = 0, i = 0, len;
+    if (!out || !cap) return -1;
+    out[0] = 0;
+    if (!text || !vmp_utf8_valid(text, len = strlen(text))) return -1;
+    while (i < len) {
+        unsigned char c = (unsigned char)text[i];
+        uint32_t cp; size_t extra = c < 0x80 ? 0 : c < 0xE0 ? 1 : c < 0xF0 ? 2 : 3;
+        cp = extra == 0 ? c : extra == 1 ? (c & 0x1Fu) : extra == 2 ? (c & 0x0Fu) : (c & 0x07u);
+        for (size_t k = 1; k <= extra; ++k) cp = (cp << 6) | ((unsigned char)text[i + k] & 0x3Fu);
+        i += extra + 1;
+        if (cp >= 0x10000) {
+            if (n + 2 >= cap) { out[0] = 0; return -1; }
+            cp -= 0x10000;
+            out[n++] = (uint16_t)(0xD800 + (cp >> 10)); out[n++] = (uint16_t)(0xDC00 + (cp & 0x3FF));
+        } else {
+            if (n + 1 >= cap) { out[0] = 0; return -1; }
+            out[n++] = (uint16_t)cp;
+        }
+    }
+    out[n] = 0;
+    return 0;
+}
+
+uint64_t vmp_time_key(unsigned year, unsigned month, unsigned day, unsigned hour, unsigned minute, unsigned second)
+{
+    return ((((((uint64_t)year * 13 + month) * 32 + day) * 24 + hour) * 60 + minute) * 60) + second;
+}
+
+static size_t root_length(const char *path)
+{
+    static const char *const roots[] = {VMP_ROOT, VMP_PICTURES, VMP_PHOTOS};
+    for (size_t i = 0; i < sizeof(roots) / sizeof(*roots); ++i) {
+        size_t n = strlen(roots[i]);
+        if (!strncmp(path, roots[i], n)) return n;
+    }
+    return 0;
+}
+
 static int component_valid(const char *s, size_t n)
 {
     size_t i;
@@ -179,9 +221,8 @@ int vmp_utf8_valid(const char *text, size_t bytes)
 
 int vmp_path_valid(const char *path, int directory)
 {
-    size_t len, root = sizeof(VMP_ROOT) - 1, start, i;
-    if (!path || (len = strlen(path)) >= VMP_PATH_CAP || len < root ||
-        strncmp(path, VMP_ROOT, root)) return 0;
+    size_t len, root, start, i;
+    if (!path || (len = strlen(path)) >= VMP_PATH_CAP || !(root = root_length(path))) return 0;
     if (directory && path[len-1] != '/') return 0;
     if (!directory && (len == root || path[len-1] == '/')) return 0;
     start = root;
@@ -215,10 +256,31 @@ int vmp_parent(char path[VMP_PATH_CAP])
     size_t len;
     if (!vmp_path_valid(path, 1)) return -1;
     len = strlen(path);
-    if (len == sizeof(VMP_ROOT) - 1) return 0;
+    if (len == root_length(path)) return 0;
     --len;
     while (len && path[len-1] != '/') --len;
     path[len] = 0;
+    return 0;
+}
+
+int vmp_path_writable(const char *path)
+{
+    return (vmp_path_valid(path, 0) || vmp_path_valid(path, 1)) &&
+        !strncmp(path, VMP_ROOT, sizeof(VMP_ROOT) - 1);
+}
+
+int vmp_rebase(char path[VMP_PATH_CAP], const char *from, const char *to)
+{
+    char result[VMP_PATH_CAP];
+    size_t f, t, rest;
+    if (!path || !vmp_path_valid(from, 1) || !vmp_path_valid(to, 1)) return -1;
+    f = strlen(from); t = strlen(to);
+    if (strncmp(path, from, f)) return -1;
+    rest = strlen(path + f);
+    if (t + rest >= sizeof(result)) return -1;
+    memcpy(result, to, t); memcpy(result + t, path + f, rest + 1);
+    if (!vmp_path_valid(result, 0) && !vmp_path_valid(result, 1)) return -1;
+    memcpy(path, result, t + rest + 1);
     return 0;
 }
 

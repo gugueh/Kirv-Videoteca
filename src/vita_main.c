@@ -16,6 +16,7 @@
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/sysmodule.h>
+#include <psp2/apputil.h>
 #include <stdatomic.h>
 #include <limits.h>
 #include <malloc.h>
@@ -81,6 +82,7 @@ unsigned app_buttons(void)
             if(y<0) y=0;
             if(y>543) y=543;
             if(!touch_down) { touch_x=x; touch_y=y; }
+            if(touch_down) { app_touch.down=1; app_touch.dx=x-touch_last_x; app_touch.dy=y-touch_last_y; }
             touch_last_x=x; touch_last_y=y; touch_down=1;
         } else if(touch_down) {
             int dx=touch_last_x-touch_x,dy=touch_last_y-touch_y;
@@ -93,6 +95,11 @@ unsigned app_buttons(void)
     if (sceCtrlPeekBufferPositive(0, &pad, 1) < 0) return 0;
     now = pad.buttons; edge = now & ~previous_buttons; previous_buttons = now;
     return edge;
+}
+
+unsigned app_held(void)
+{
+    return previous_buttons;
 }
 
 static void text(int x, int y, const char *s)
@@ -124,18 +131,19 @@ void app_frame_end(void)
     /* The display queue callback in vita2d already waits for vblank. */
 }
 
-int app_text_input(const char *title, char *out, size_t cap)
+int app_text_input(const char *title, const char *initial, char *out, size_t cap)
 {
-    static SceWChar16 ime_title[48], ime_initial[1], ime_input[65];
+    static SceWChar16 ime_title[64], ime_initial[65], ime_input[65];
     SceImeDialogParam param;
     SceImeDialogResult result;
     int status = -1;
     unsigned drain;
     if (!out || !cap) return -1;
     out[0] = 0;
-    if (!title || strlen(title) >= sizeof(ime_title)/sizeof(*ime_title)) return -1;
-    memset(ime_input, 0, sizeof(ime_input)); ime_initial[0] = 0;
-    for (size_t i = 0; (ime_title[i] = (unsigned char)title[i]) != 0; ++i) ime_title[i + 1] = 0;
+    memset(ime_input, 0, sizeof(ime_input));
+    if (vmp_utf8_to_utf16(title, (uint16_t *)ime_title, sizeof(ime_title)/sizeof(*ime_title)) ||
+        vmp_utf8_to_utf16(initial ? initial : "", (uint16_t *)ime_initial, sizeof(ime_initial)/sizeof(*ime_initial)))
+        return -1;
     sceImeDialogParamInit(&param);
     param.supportedLanguages = 0x0001FFFF; param.languagesForced = SCE_FALSE;
     param.type = SCE_IME_TYPE_DEFAULT; param.option = 0;
@@ -163,6 +171,12 @@ int app_text_input(const char *title, char *out, size_t cap)
     return status;
 }
 
+static uint64_t entry_time(const SceIoStat *st)
+{
+    return vmp_time_key(st->st_mtime.year, st->st_mtime.month, st->st_mtime.day,
+                        st->st_mtime.hour, st->st_mtime.minute, st->st_mtime.second);
+}
+
 static int next_entry(void *context, VmpEntry *out)
 {
     SceIoDirent item;
@@ -175,7 +189,66 @@ static int next_entry(void *context, VmpEntry *out)
         vmp_copy(out->name, sizeof(out->name), item.d_name)) return -1;
     out->directory = SCE_S_ISDIR(item.d_stat.st_mode);
     out->regular = SCE_S_ISREG(item.d_stat.st_mode);
+    out->time = entry_time(&item.d_stat);
     return 1;
+}
+
+/* Bounded recursive walk: depth, entries read per folder and results are all capped. */
+static void walk_images(const char *dir, int depth, VmpEntry *entries, char (*paths)[VMP_PATH_CAP],
+                        size_t cap, size_t *count)
+{
+    SceUID handle;
+    if (depth > 4 || *count >= cap || (handle = sceIoDopen(dir)) < 0) return;
+    for (unsigned seen = 0; seen < VMP_MAX_ENTRIES && *count < cap; ++seen) {
+        SceIoDirent item;
+        char child[VMP_PATH_CAP];
+        memset(&item, 0, sizeof(item));
+        if (sceIoDread(handle, &item) <= 0) break;
+        if (!memchr(item.d_name, 0, sizeof(item.d_name)) || !strcmp(item.d_name, ".") ||
+            !strcmp(item.d_name, "..") || vmp_copy(child, sizeof(child), dir)) continue;
+        if (SCE_S_ISDIR(item.d_stat.st_mode)) {
+            if (!vmp_child(child, item.d_name, 1)) walk_images(child, depth + 1, entries, paths, cap, count);
+        } else if (SCE_S_ISREG(item.d_stat.st_mode) && vmp_image_kind(item.d_name) &&
+                   !vmp_child(child, item.d_name, 0) &&
+                   !vmp_copy(entries[*count].name, sizeof(entries[*count].name), item.d_name)) {
+            entries[*count].directory = 0; entries[*count].regular = 1;
+            entries[*count].time = entry_time(&item.d_stat);
+            vmp_copy(paths[*count], VMP_PATH_CAP, child);
+            ++*count;
+        }
+    }
+    (void)sceIoDclose(handle);
+}
+
+static const char *picture_root;
+static int photo_mount_tried;
+
+/* Restricted apps may not read ux0:picture directly; photo0: is the system's photo mount. */
+static int find_pictures(void)
+{
+    SceUID dir = sceIoDopen(VMP_PICTURES);
+    int first = dir;
+    if (dir >= 0) { (void)sceIoDclose(dir); picture_root = VMP_PICTURES; return 0; }
+    if (!photo_mount_tried) {
+        SceAppUtilInitParam init; SceAppUtilBootParam boot;
+        photo_mount_tried = 1;
+        memset(&init, 0, sizeof(init)); memset(&boot, 0, sizeof(boot));
+        (void)sceAppUtilInit(&init, &boot);
+        (void)sceAppUtilPhotoMount();
+    }
+    dir = sceIoDopen(VMP_PHOTOS);
+    if (dir >= 0) { (void)sceIoDclose(dir); picture_root = VMP_PHOTOS; return 0; }
+    picture_root = NULL;
+    return first;
+}
+
+int app_list_images(VmpEntry *entries, char (*paths)[VMP_PATH_CAP], size_t cap, size_t *count)
+{
+    int access = find_pictures();
+    *count = 0;
+    if (picture_root) walk_images(picture_root, 0, entries, paths, cap, count);
+    walk_images(VMP_ROOT, 0, entries, paths, cap, count);
+    return access;
 }
 
 int app_list(const char *path, Entry *entries, size_t *count)
@@ -184,19 +257,19 @@ int app_list(const char *path, Entry *entries, size_t *count)
     int ret;
     *count = 0;
     if (!vmp_path_valid(path, 1)) {
-        app_message("Ruta de biblioteca invalida.");
+        app_message(L("Ruta de biblioteca inválida.","Invalid library path."));
         return -1;
     }
     dir = sceIoDopen(path);
     if (dir < 0) {
-        message_code("Abrir carpeta", dir, 0);
+        message_code(L("Abrir carpeta","Open folder"), dir, 0);
         return -1;
     }
     ret = vmp_collect(path, entries, VMP_MAX_ENTRIES, count, next_entry, &dir);
     if (sceIoDclose(dir) < 0) ret = -1;
     if (ret < 0) {
         *count = 0;
-        app_message("Carpeta no disponible: error, nombre demasiado largo o mas de 1024 entradas.");
+        app_message(L("Carpeta no disponible: error, nombre demasiado largo o más de 1024 entradas.","Folder unavailable: error, name too long or more than 1024 entries."));
         return -1;
     }
     return 0;
@@ -410,16 +483,16 @@ static int playback(const char *path)
     atomic_init(&audio.stage,0); atomic_init(&audio.rate,0); atomic_init(&audio.channels,0); atomic_init(&audio.bytes,0);
     if(!vmp_path_valid(path,0) || !vmp_is_mp4(path)) return -1;
     diag_lines=0; diag_file=fopen("ux0:data/VMPH00001/playback.log","w");
-    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.19\npath=%s\n",path); fflush(diag_file); }
+    if(diag_file) { fprintf(diag_file,"Kirv DEV 0.20\npath=%s\n",path); fflush(diag_file); }
     diag_snapshot("begin",0,0,0);
     if(!vmp_srt_path(srt,path) && (input=fopen(srt,"rb"))!=NULL) {
         int parsed=vmp_srt_read(input,&subtitles);
-        if(fclose(input) || parsed) { app_message("Subtítulos inválidos o demasiado grandes."); goto cleanup; }
+        if(fclose(input) || parsed) { app_message(L("Subtítulos inválidos o demasiado grandes.","Invalid or too large subtitles.")); goto cleanup; }
     }
     /* Cache is owned by the UI; decoder buffers are used only until rendering
        finishes. This permits redraws while paused and hidden controls. */
     cached=vita2d_create_empty_texture_rendertarget(960,544,SCE_GXM_TEXTURE_FORMAT_A8B8G8R8);
-    if(!cached) { app_message("No hay memoria para la pantalla de reproducción."); goto cleanup; }
+    if(!cached) { app_message(L("No hay memoria para la pantalla de reproducción.","Not enough memory for the playback screen.")); goto cleanup; }
     init.memoryReplacement.allocate=allocate; init.memoryReplacement.deallocate=deallocate;
     init.memoryReplacement.allocateTexture=allocate_frame; init.memoryReplacement.deallocateTexture=free_frame;
     init.fileReplacement.objectPointer=&file; init.fileReplacement.open=open_video;
@@ -430,24 +503,24 @@ static int playback(const char *path)
     diag_snapshot("init-result",player,0,atomic_load(&file.error));
     {
         int mapped=player<0 && sceKernelFindMemBlockByAddr((const void *)(uintptr_t)(uint32_t)player,0)>=0;
-        if(!vmp_player_handle_valid(player,mapped)) { message_code("Inicializar MP4",player,atomic_load(&file.error)); goto cleanup; }
+        if(!vmp_player_handle_valid(player,mapped)) { message_code(L("Inicializar MP4","Initialize MP4"),player,atomic_load(&file.error)); goto cleanup; }
     }
     player_created=1; audio.player=player;
     {
         int added=sceAvPlayerAddSource(player,path);
         diag_snapshot("add-source-result",added,0,atomic_load(&file.error));
-        if(added<0) { message_code("Abrir MP4",added,atomic_load(&file.error)); goto cleanup; }
+        if(added<0) { message_code(L("Abrir MP4","Open MP4"),added,atomic_load(&file.error)); goto cleanup; }
     }
     (void)sceAvPlayerSetLooping(player,SCE_FALSE);
     /* Restore the user-thread priority used by the version tested on hardware.
        0x10000080 introduced in 0.17 prevented entry into the playback loop. */
     thread=sceKernelCreateThread("vmp_audio",audio_thread,0x10000100,0x10000,0,0,NULL);
     diag_snapshot("audio-thread-create",thread,0,0);
-    if(thread<0) { message_code("Crear hilo de audio",thread,0); goto cleanup; }
+    if(thread<0) { message_code(L("Crear hilo de audio","Create audio thread"),thread,0); goto cleanup; }
     {
         int result=sceKernelStartThread(thread,sizeof(audio_arg),&audio_arg);
         diag_snapshot("audio-thread-start",result,0,0);
-        if(result<0) { message_code("Iniciar hilo de audio",result,0); goto cleanup; }
+        if(result<0) { message_code(L("Iniciar hilo de audio","Start audio thread"),result,0); goto cleanup; }
     }
     thread_started=1;
     last_progress=interaction=checkpoint=sceKernelGetProcessTimeWide();
@@ -485,6 +558,8 @@ static int playback(const char *path)
         if(buttons&SCE_CTRL_CROSS) {
             int changed=paused?sceAvPlayerResume(player):sceAvPlayerPause(player);
             if(changed>=0) paused=!paused;
+            /* Pausing is a natural moment to keep progress if the app is then closed. */
+            if(changed>=0 && paused && have_video && position>0 && !vmp_remember(&library,path,position,duration,0)) { (void)app_save(); checkpoint=now; }
         }
         if(buttons&SCE_CTRL_UP) library.volume=library.volume<=90?library.volume+10:100;
         if(buttons&SCE_CTRL_DOWN) library.volume=library.volume>=10?library.volume-10:0;
@@ -497,18 +572,18 @@ static int playback(const char *path)
             if(sceAvPlayerJumpToTime(player,dest)>=0) last_progress=now;
         }
         if(atomic_load(&audio.failed)) {
-            const char *stages[]={"Audio","Formato PCM","Abrir salida de audio","Volumen de audio","Enviar audio"};
+            const char *stages[]={"Audio",L("Formato PCM","PCM format"),L("Abrir salida de audio","Open audio output"),L("Volumen de audio","Audio volume"),L("Enviar audio","Send audio")};
             int stage=atomic_load(&audio.stage);
             message_code(stages[stage>=0 && stage<=4?stage:0],atomic_load(&audio.failed),0); break;
         }
         if(!active && atomic_load(&diag_alloc_error)) {
-            message_code("Memoria del decodificador",atomic_load(&diag_alloc_error),atomic_load(&file.error));
+            message_code(L("Memoria del decodificador","Decoder memory"),atomic_load(&diag_alloc_error),atomic_load(&file.error));
             break;
         }
         if(active) active_seen=1;
         if(active_seen && have_video && !active && !paused) { ret=1; break; }
         if(active_seen && !have_video && !active && now-interaction>UINT64_C(1000000)) {
-            app_message("El decodificador no admite este archivo. Usa una copia H.264 / AAC-LC."); break;
+            app_message(L("El decodificador no admite este archivo. Usa una copia H.264 / AAC-LC.","The decoder does not support this file. Use an H.264 / AAC-LC copy.")); break;
         }
         if(active && !duration) {
             for(unsigned i=0;i<8;i++) {
@@ -523,13 +598,13 @@ static int playback(const char *path)
         if(time_ms<=UINT64_C(604800000) && have_video) position=duration && time_ms>duration?duration:time_ms;
         if(now-last_progress>UINT64_C(15000000)) {
             diag_snapshot("timeout",active,time_ms,atomic_load(&file.error));
-            app_message("Sin respuesta en 15 s. Diagnóstico guardado en playback.log."); break;
+            app_message(L("Sin respuesta en 15 s. Diagnóstico guardado en playback.log.","No response for 15 s. Diagnostics saved to playback.log.")); break;
         }
         if(have_frame) {
             vita2d_texture texture; unsigned w=frame.details.video.width,h=frame.details.video.height;
-            if(!frame.pData || !w || !h || w>1280 || h>736) { app_message("Resolución no compatible (máximo 1280 x 736)."); break; }
+            if(!frame.pData || !w || !h || w>1280 || h>736) { app_message(L("Resolución no compatible (máximo 1280 x 736).","Unsupported resolution (max 1280 x 736).")); break; }
             memset(&texture,0,sizeof(texture));
-            if(sceGxmTextureInitLinear(&texture.gxm_tex,frame.pData,SCE_GXM_TEXTURE_FORMAT_YVU420P2_CSC1,w,h,0)<0) { app_message("No se pudo preparar el fotograma."); break; }
+            if(sceGxmTextureInitLinear(&texture.gxm_tex,frame.pData,SCE_GXM_TEXTURE_FORMAT_YVU420P2_CSC1,w,h,0)<0) { app_message(L("No se pudo preparar el fotograma.","Could not prepare the frame.")); break; }
             vita2d_start_drawing_advanced(cached,0); vita2d_clear_screen();
             {
                 float sx=960.0f/(float)w,sy=544.0f/(float)h;
@@ -546,7 +621,7 @@ static int playback(const char *path)
         if(!paused && now-interaction>(uint64_t)vmp_hide_seconds(&library)*1000000) controls_visible=0;
         app_frame_begin();
         if(have_video) vita2d_draw_texture(cached,0,0);
-        else { ui_background(); ui_text(300,250,1.1f,UI_WHITE,"Preparando vídeo...",600); }
+        else { ui_background(); ui_text(300,250,1.1f,UI_WHITE,L("Preparando vídeo...","Loading video..."),600); }
         if(show_subtitles) {
             const char *cue=vmp_srt_at(&subtitles,time_ms);
             if(cue && cue[0]) {
@@ -557,7 +632,7 @@ static int playback(const char *path)
         }
         if(controls_visible || paused || !have_video) ui_player(name?name+1:path,time_ms,duration,paused,library.volume,show_subtitles,subtitles.count>0,vmp_seek_seconds(&library));
         app_frame_end(); sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT);
-        if(have_video && position>0 && now-checkpoint>UINT64_C(30000000)) {
+        if(have_video && position>0 && now-checkpoint>UINT64_C(10000000)) {
             if(!vmp_remember(&library,path,position,duration,0)) (void)app_save();
             checkpoint=now;
         }

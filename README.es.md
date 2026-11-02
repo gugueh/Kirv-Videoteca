@@ -5,14 +5,14 @@ Reproductor de vídeos MP4 y visor de imágenes para PS Vita, con biblioteca org
 
 Se inspira en [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) de SonicMastr. El código de la aplicación está reescrito para corregir los fallos de memoria y de rutas encontrados al auditar el original, y ya no usa plugins ni módulos precompilados.
 
-> **Estado:** DEV 0.19. La reproducción de vídeo se usa a diario en una PS Vita real desde la DEV 0.18. El visor de imágenes y «Nueva carpeta» son nuevos en la 0.19 y se están probando en la consola.
+> **Estado:** DEV 0.20. La reproducción de vídeo se usa a diario en una PS Vita real desde la DEV 0.18. El visor de imágenes, las fotos de la consola, renombrar/eliminar y la interfaz en inglés son nuevos en la 0.19–0.20 y se están probando en la consola.
 
 ## Funciones
 
 - **Vídeo:** MP4 (H.264/AAC recomendado), progreso guardado, reanudación, marca de visto, siguiente vídeo automático, subtítulos externos `.srt`, miniaturas al salir del vídeo.
-- **Imágenes:** PNG, JPEG y BMP (24/32 bits). Pasar con izquierda/derecha o L/R, deslizar o tocar los bordes. Cuadrado alterna ajustar/llenar; triángulo oculta la barra.
-- **Carpetas:** pestañas Todo, Series, Películas, Imágenes y Carpetas. Opciones → **Nueva carpeta** crea una carpeta en la ubicación actual con el teclado del sistema.
-- **Táctil y botones**, ajustes de volumen, saltos y ajuste de imagen.
+- **Imágenes:** PNG, JPEG y BMP (24/32 bits), incluidas las capturas y fotos de la propia consola (`ux0:picture`, solo lectura). La pestaña Imágenes muestra todas, de la más nueva a la más vieja, con miniaturas. Zoom con X/cuadrado, mover con la cruceta o el dedo, cambiar de imagen con L/R, izquierda/derecha, deslizando o tocando los bordes.
+- **Archivos:** pestañas Todo, Series, Películas, Imágenes y Carpetas. Opciones → **Nueva carpeta**, **Renombrar seleccionado** y **Eliminar seleccionado** (archivos y carpetas vacías, con confirmación) con el teclado del sistema. Subtítulos, miniaturas y progreso acompañan al vídeo renombrado o eliminado.
+- Interfaz en **español o inglés** (Ajustes → Idioma). El progreso se guarda cada 10 segundos y al pausar.
 
 ## Instalación y uso
 
@@ -31,31 +31,32 @@ ux0:data/VMPH00001/video/
       foto.jpg
 ```
 
-Las carpetas `Series/`, `Peliculas/` e `Imagenes/` son opcionales: si existen, esas pestañas arrancan allí. Una `cover.png` dentro de una carpeta se usa como carátula.
+Las carpetas `Series/` y `Peliculas/` son opcionales: si existen, esas pestañas arrancan allí. Una `cover.png` dentro de una carpeta se usa como carátula.
 
 ### Controles
 
 | | Biblioteca | Vídeo | Imagen |
 |---|---|---|---|
-| X | abrir | pausa | — |
+| X | abrir | pausa | acercar |
 | O | volver | volver | volver |
-| Izq./Der. | mover | saltar | anterior/siguiente |
+| Izq./Der. | mover | saltar | anterior/siguiente (mover con zoom) |
 | L / R | cambiar pestaña | saltar | anterior/siguiente |
-| Arriba/Abajo | mover | volumen | — |
-| Cuadrado | vista cuadrícula/lista | subtítulos | ajustar/llenar |
+| Arriba/Abajo | mover | volumen | mover con zoom |
+| Cuadrado | vista cuadrícula/lista | subtítulos | alejar |
 | Triángulo / Start | opciones | ocultar controles | ocultar barra |
 
 ## Límites
 
 - Vídeo: SceAvPlayer, hasta 1280 × 736, audio mono/estéreo PCM 16 bits.
-- Imágenes: hasta 8 megapíxeles, 4096 px por lado y 12 MB por archivo. Las fotos de móvil de 12 MP no se abren; redúcelas antes.
+- Imágenes: JPEG hasta 16384 px por lado y 48 MB (se decodifica reducido); PNG y BMP hasta 8 megapíxeles, 4096 px por lado y 12 MB.
+- Las fotos de la consola son de solo lectura. Si el sistema no deja leerlas, la pestaña Imágenes muestra las de la biblioteca y el código de error.
 - Rutas de menos de 512 bytes, nombres de hasta 255 bytes, 1.024 entradas por carpeta.
 - SRT: UTF-8, hasta 4 MiB y 4.096 fragmentos.
-- Nombres de carpeta nuevos: sin `\ / : * ? " < > |`, sin espacios ni punto al borde.
+- Nombres: sin `\ / : * ? " < > |`, sin espacios ni punto al borde. Solo se pueden eliminar carpetas vacías.
 
 ## Seguridad
 
-Esta variante usa un SELF restringido (`authid=0x2F00000000000002`), sin taiHEN, sin red y sin SUPRX incluidos. Solo escribe dentro de `ux0:data/VMPH00001/` (preferencias, registro y miniaturas junto a los vídeos). El verificador `tools/verify_vpk.py` rechaza paquetes con otros permisos o archivos inesperados; es una comprobación estructural, no una auditoría completa.
+Esta variante usa un SELF restringido (`authid=0x2F00000000000002`), sin taiHEN, sin red y sin SUPRX incluidos. Solo escribe dentro de `ux0:data/VMPH00001/` (preferencias, registro, miniaturas junto a los vídeos y las carpetas y archivos que crees, renombres o elimines ahí). El verificador `tools/verify_vpk.py` rechaza paquetes con otros permisos o archivos inesperados; es una comprobación estructural, no una auditoría completa.
 
 ## Compilar
 

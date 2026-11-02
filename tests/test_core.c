@@ -295,9 +295,43 @@ static void images(void)
     CHECK(!vmp_utf16_to_utf8(utf16,out,sizeof(out)) && !out[0]);
 }
 
+static void roots(void)
+{
+    char path[VMP_PATH_CAP] = VMP_PICTURES;
+    uint16_t wide[8];
+    static const unsigned char big_jpg[] = {0xFF,0xD8, 0xFF,0xC0,0,17,8, 0x0F,0xA0, 0x17,0x70, 3,1,0x22,0,2,0x11,1,3,0x11,1};
+    unsigned w = 0, h = 0;
+    CHECK(vmp_path_valid(VMP_PICTURES, 1) && vmp_path_valid(VMP_PHOTOS, 1));
+    CHECK(vmp_path_valid(VMP_PICTURES "SCREENSHOT/bg/2025-11-22-082540.png", 0));
+    CHECK(!vmp_path_valid("ux0:picturex/a.png", 0) && !vmp_path_valid(VMP_PICTURES "../data/a.png", 0));
+    CHECK(!vmp_child(path, "SCREENSHOT", 1) && !vmp_child(path, "bg", 1));
+    CHECK(!vmp_parent(path) && !vmp_parent(path) && !strcmp(path, VMP_PICTURES));
+    CHECK(!vmp_parent(path) && !strcmp(path, VMP_PICTURES));
+    CHECK(vmp_path_writable(VMP_ROOT "Serie/") && vmp_path_writable(VMP_ROOT "a.mp4"));
+    CHECK(!vmp_path_writable(VMP_PICTURES "a.png") && !vmp_path_writable(VMP_PHOTOS "x/"));
+    CHECK(!vmp_path_writable("ux0:data/other/a.mp4") && !vmp_path_writable(NULL));
+    vmp_copy(path, sizeof(path), VMP_ROOT "Serie/T1/01.mp4");
+    CHECK(!vmp_rebase(path, VMP_ROOT "Serie/", VMP_ROOT "Show/") && !strcmp(path, VMP_ROOT "Show/T1/01.mp4"));
+    CHECK(vmp_rebase(path, VMP_ROOT "Serie/", VMP_ROOT "X/") < 0 && !strcmp(path, VMP_ROOT "Show/T1/01.mp4"));
+    CHECK(vmp_rebase(path, VMP_ROOT "Show/", "ux0:data/") < 0);
+    CHECK(!vmp_utf8_to_utf16("A\xC3\xA9\xF0\x9F\x98\x80", wide, 8));
+    CHECK(wide[0] == 'A' && wide[1] == 0xE9 && wide[2] == 0xD83D && wide[3] == 0xDE00 && !wide[4]);
+    CHECK(vmp_utf8_to_utf16("abcd", wide, 4) < 0 && !wide[0]);
+    CHECK(vmp_utf8_to_utf16("\xC3", wide, 8) < 0 && vmp_utf8_to_utf16(NULL, wide, 8) < 0);
+    CHECK(!vmp_utf8_to_utf16("", wide, 1) && !wide[0]);
+    {
+        FILE *f = tmpfile(); assert(f && fwrite(big_jpg, 1, sizeof(big_jpg), f) == sizeof(big_jpg));
+        CHECK(!vmp_image_probe(f, VMP_IMAGE_JPEG, 20u * 1024u * 1024u, &w, &h) && w == 6000 && h == 4000);
+        CHECK(vmp_image_probe(f, VMP_IMAGE_JPEG, VMP_JPEG_MAX_BYTES + 1u, &w, &h) < 0);
+        fclose(f);
+    }
+    CHECK(vmp_time_key(2025, 11, 22, 8, 25, 40) > vmp_time_key(2025, 11, 22, 8, 25, 39));
+    CHECK(vmp_time_key(2026, 1, 1, 0, 0, 0) > vmp_time_key(2025, 12, 31, 23, 59, 59));
+}
+
 int main(void)
 {
-    paths(); subtitles(); shapes(); directories(); images(); fuzz();
+    paths(); subtitles(); shapes(); directories(); images(); roots(); fuzz();
     printf("PASS: %u assertions, including 5000 deterministic parser mutations.\n",checks);
     return 0;
 }

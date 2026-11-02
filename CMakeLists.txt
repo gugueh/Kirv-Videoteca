@@ -36,7 +36,7 @@ else()
   target_link_libraries(vmp_hardened PRIVATE vmp_core vita2d SceAvPlayer_stub
     SceAudio_stub SceCtrl_stub SceTouch_stub SceDisplay_stub SceGxm_stub SceSysmodule_stub
     SceIofilemgr_stub SceSysmem_stub SceKernelThreadMgr_stub SceProcessmgr_stub
-    ScePgf_stub ScePvf_stub SceCommonDialog_stub SceAppMgr_stub
+    ScePgf_stub ScePvf_stub SceCommonDialog_stub SceAppUtil_stub SceAppMgr_stub
     png jpeg z m c)
   # Normal restricted SELF: no UNSAFE/SECRETSAFE and no external SUPRX files.
   if(VITA_MAKE_FSELF_FLAGS OR VITA_ELF_CREATE_FLAGS)
@@ -48,7 +48,7 @@ else()
     list(APPEND KIRV_UI_FILES FILE assets/ui/${asset}.png assets/ui/${asset}.png)
   endforeach()
   vita_create_vpk(VitaMediaPlayerHardened-DEV.vpk VMPH00001 eboot.bin
-    VERSION 00.19 NAME "Kirv Videoteca DEV"
+    VERSION 00.20 NAME "Kirv Videoteca DEV"
     FILE assets/icon0.png sce_sys/icon0.png
     FILE assets/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
     FILE assets/livearea/contents/startup.png sce_sys/livearea/contents/startup.png

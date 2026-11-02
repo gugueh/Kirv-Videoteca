@@ -9,7 +9,7 @@ unsigned vmp_hide_seconds(const VmpLibrary *s) { return hide_values[s->hide_inde
 void vmp_library_defaults(VmpLibrary *s) { memset(s,0,sizeof(*s)); s->resume=1; s->subtitles=1; s->seek_index=1; s->volume=100; }
 static int options_valid(const VmpLibrary *s) {
     return s->resume<=1 && s->autoplay<=1 && s->seek_index<3 && s->hide_index<3 &&
-        s->subtitles<=1 && s->fill<=1 && s->volume<=100 && s->count<=VMP_HISTORY;
+        s->subtitles<=1 && s->fill<=1 && s->volume<=100 && s->language<=1 && s->count<=VMP_HISTORY;
 }
 static int progress_valid(const VmpProgress *p) {
     return memchr(p->path,0,sizeof(p->path)) && vmp_path_valid(p->path,0) && vmp_is_mp4(p->path) &&
@@ -32,6 +32,20 @@ int vmp_remember(VmpLibrary *s,const char *path,uint64_t pos,uint64_t duration,u
     s->items[0]=item;
     return 0;
 }
+void vmp_forget(VmpLibrary *s, const char *path) {
+    for(size_t i=0;i<s->count;i++) if(!strcmp(s->items[i].path,path)) {
+        memmove(s->items+i,s->items+i+1,(s->count-i-1)*sizeof(*s->items)); s->count--; return;
+    }
+}
+void vmp_rename_progress(VmpLibrary *s, const char *from, const char *to) {
+    size_t f=strlen(from); int dir=f && from[f-1]=='/';
+    for(size_t i=0;i<s->count;i++) {
+        char moved[VMP_PATH_CAP];
+        if(vmp_copy(moved,sizeof(moved),s->items[i].path)) continue;
+        if(dir ? vmp_rebase(moved,from,to) : (strcmp(moved,from) || vmp_copy(moved,sizeof(moved),to))) continue;
+        if(vmp_is_mp4(moved) && vmp_path_valid(moved,0)) vmp_copy(s->items[i].path,sizeof(s->items[i].path),moved);
+    }
+}
 static int write_u64(FILE *f,uint64_t value) {
     unsigned char b[8]; for(unsigned i=0;i<8;i++) b[i]=(unsigned char)(value>>(8*i));
     return fwrite(b,1,8,f)==8 ? 0 : -1;
@@ -48,7 +62,7 @@ int vmp_library_write(FILE *f,const VmpLibrary *s) {
     options[2]=(unsigned char)s->seek_index; options[3]=(unsigned char)s->hide_index;
     options[4]=(unsigned char)s->subtitles; options[5]=(unsigned char)s->fill;
     options[6]=(unsigned char)s->volume; options[7]=(unsigned char)s->count;
-    if(fwrite("KIRVUI01",1,8,f)!=8 || fwrite(options,1,8,f)!=8) return -1;
+    if(fwrite("KIRVUI02",1,8,f)!=8 || fwrite(options,1,8,f)!=8 || fputc((int)s->language,f)==EOF) return -1;
     for(size_t i=0;i<s->count;i++) {
         const VmpProgress *p=&s->items[i]; size_t n=strlen(p->path);
         if(fputc((int)(n&255),f)==EOF || fputc((int)(n>>8),f)==EOF || fwrite(p->path,1,n,f)!=n ||
@@ -57,9 +71,12 @@ int vmp_library_write(FILE *f,const VmpLibrary *s) {
     return ferror(f) ? -1 : 0;
 }
 int vmp_library_read(FILE *f,VmpLibrary *s) {
-    unsigned char head[16]; VmpLibrary *tmp; int result=-1;
-    if(!f || fread(head,1,16,f)!=16 || memcmp(head,"KIRVUI01",8)) return -1;
+    unsigned char head[16]; VmpLibrary *tmp; int result=-1,version;
+    if(!f || fread(head,1,16,f)!=16) return -1;
+    version=!memcmp(head,"KIRVUI01",8)?1:!memcmp(head,"KIRVUI02",8)?2:0;
+    if(!version) return -1;
     tmp=calloc(1,sizeof(*tmp)); if(!tmp) return -1;
+    if(version>=2) { int language=fgetc(f); if(language==EOF) goto done; tmp->language=(unsigned)language; }
     tmp->resume=head[8]; tmp->autoplay=head[9]; tmp->seek_index=head[10]; tmp->hide_index=head[11];
     tmp->subtitles=head[12]; tmp->fill=head[13]; tmp->volume=head[14]; tmp->count=head[15];
     if(!options_valid(tmp)) goto done;

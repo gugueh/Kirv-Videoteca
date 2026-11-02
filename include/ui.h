@@ -16,6 +16,9 @@ void ui_welcome(void);
 void ui_cover(const char *directory,int x,int y,int w,int h,const char *label);
 void ui_clear_covers(void);
 void ui_save_thumbnail(const char *video,vita2d_texture *frame);
+/* Loads an image no larger than max_side (JPEG is decoded scaled down). NULL and a
+   translated reason in *error when the file is unsupported, too large or corrupt. */
+vita2d_texture *ui_load_image(const char *path,int kind,unsigned max_side,const char **error);
 void ui_time(char *out,size_t cap,uint64_t ms);
 void ui_bar(int x,int y,int w,uint64_t pos,uint64_t duration);
 void ui_player(const char *name,uint64_t pos,uint64_t duration,int paused,unsigned volume,int subtitles,int has_subtitles,unsigned seek);
