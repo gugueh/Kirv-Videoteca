@@ -202,7 +202,11 @@ class Api:
 
         ok, error = media.run(media.command(ffmpeg, item["path"], target, p), p["duration"], progress, lambda: self.stop)
         if not ok:
-            item.update(status="failed", detail=error or "ffmpeg")
+            # A cancelled item goes back to its plan so it can be started again.
+            if error == "cancelled":
+                item.update(status=p["summary"], progress=0, detail="")
+            else:
+                item.update(status="failed", detail=error or "ffmpeg")
             if os.path.isfile(target):
                 os.remove(target)
             self._emit("item", self._public(item))
@@ -211,7 +215,14 @@ class Api:
         if p["subtitle"] is not None:
             srt = os.path.splitext(target)[0] + ".srt"
             if media.run(media.subtitle_command(ffmpeg, item["path"], srt, p["subtitle"]), 0)[0]:
-                files.append(srt)
+                with open(srt, encoding="utf-8", errors="replace") as f:
+                    cleaned = media.vita_srt(f.read())
+                if cleaned:
+                    with open(srt, "w", encoding="utf-8", newline="\n") as f:
+                        f.write(cleaned)
+                    files.append(srt)
+                else:
+                    os.remove(srt)
         item.update(_files=files, status="done", progress=1)
         self._emit("item", self._public(item))
         return files
@@ -231,6 +242,48 @@ class Api:
         self._emit("item", self._public(item))
 
 
+def dropped_paths(event):
+    """Full paths of the files and folders in a pywebview drop event."""
+    return [f.get("pywebviewFullPath") for f in event.get("dataTransfer", {}).get("files", []) if f.get("pywebviewFullPath")]
+
+
+def selftest(api, window, folder, report):
+    """--selftest FOLDER REPORT: drives the real page (buttons and list) on one
+    folder, converts it and writes what the page showed. Used to check builds."""
+    import time
+    result = {}
+    try:
+        for _ in range(100):
+            if window.evaluate_js("!!(window.kirv && document.querySelector('#summary'))"):
+                break
+            time.sleep(0.1)
+        time.sleep(1)
+        result["demo_rows"] = window.evaluate_js("document.querySelectorAll('.item').length")
+        api.add([folder])
+        while any(i["status"] == "analysing" for i in api.items):
+            time.sleep(0.2)
+        time.sleep(0.5)
+        result["before"] = window.evaluate_js("[...document.querySelectorAll('.item .state')].map(e => e.textContent)")
+        window.evaluate_js("document.querySelector('[data-action=convert]').click()")
+        time.sleep(1)
+        while api.busy:
+            time.sleep(0.3)
+        time.sleep(0.5)
+        result["after"] = window.evaluate_js("[...document.querySelectorAll('.item .state')].map(e => e.textContent)")
+        result["summary"] = window.evaluate_js("document.querySelector('#summary').textContent")
+        window.evaluate_js("document.querySelector('[data-lang=en]').click()")
+        time.sleep(0.5)
+        result["english"] = window.evaluate_js("document.querySelector('[data-action=send] span').textContent")
+        window.evaluate_js("document.querySelector('[data-lang=es]').click()")
+        result["ffmpeg"] = media.tool("ffmpeg")
+        result["items"] = [{k: i[k] for k in ("name", "status")} for i in api.items]
+    except Exception as error:
+        result["error"] = repr(error)
+    with open(report, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    window.destroy()
+
+
 def main():
     sync_assets()
     api = Api()
@@ -238,15 +291,16 @@ def main():
                                    width=1100, height=720, min_size=(900, 600), background_color="#0F1C2E")
     api._window = window
 
-    def on_drop(event):
-        paths = [f.get("pywebviewFullPath") for f in event.get("dataTransfer", {}).get("files", [])]
-        api.add([p for p in paths if p])
-
     def loaded():
         window.dom.document.events.dragover += DOMEventHandler(lambda e: None, True, True, debounce=500)
-        window.dom.document.events.drop += DOMEventHandler(on_drop, True, True)
+        window.dom.document.events.drop += DOMEventHandler(lambda e: api.add(dropped_paths(e)), True, True)
 
     window.events.loaded += loaded
+    if len(sys.argv) == 4 and sys.argv[1] == "--selftest":
+        api.settings["output"] = os.path.join(os.path.dirname(sys.argv[3]), "selftest-out")
+        # A test run keeps settings in memory and never writes the user's file.
+        api.save_settings = lambda values: api.settings.update({k: values[k] for k in DEFAULTS if k in values}) or api.settings
+        threading.Thread(target=selftest, args=(api, window, sys.argv[2], sys.argv[3]), daemon=True).start()
     webview.start()
 
 

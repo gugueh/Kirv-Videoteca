@@ -67,6 +67,48 @@ class Plan(unittest.TestCase):
         self.assertEqual(media.output_name("x/Ep 01.mkv"), "Ep 01.mp4")
 
 
+class Subtitles(unittest.TestCase):
+    def cues(self, text):
+        out = []
+        if not text.strip():
+            return out
+        for block in text.strip().split("\n\n"):
+            lines = block.split("\n")
+            a, b = lines[1].split(" --> ")
+            out.append((a, b, "\n".join(lines[2:])))
+        return out
+
+    def test_tags_and_overlaps(self):
+        src = ("﻿1\r\n00:00:01,000 --> 00:00:03,000\r\n<font size=\"20\">{\\an8}Arriba <i>x</i></font>\r\n\r\n"
+               "2\r\n00:00:02,000 --> 00:00:04,000\r\nB\\NC\r\n\r\n3\r\n00:00:05,000 --> 00:00:05,000\r\nvacío\r\n")
+        self.assertEqual(self.cues(media.vita_srt(src)), [
+            ("00:00:01,000", "00:00:02,000", "Arriba x"),
+            ("00:00:02,000", "00:00:03,000", "Arriba x\nB\nC"),
+            ("00:00:03,000", "00:00:04,000", "B\nC")])
+
+    def test_random_cues_never_overlap(self):
+        import random
+        rng = random.Random(7)
+        for _ in range(500):
+            blocks = []
+            for i in range(rng.randint(0, 12)):
+                a = rng.randint(0, 20000)
+                b = a + rng.randint(0, 5000)
+                blocks.append("%d\n%s --> %s\n%s" % (i, media._stamp(a), media._stamp(b), rng.choice(["a", "b", "", "<b>c</b>"])))
+            out = self.cues(media.vita_srt("\n\n".join(blocks))) if blocks else []
+            ends = [(media._ms(*a.replace(",", ":").split(":")), media._ms(*b.replace(",", ":").split(":"))) for a, b, _ in out]
+            for (a, b), nxt in zip(ends, ends[1:] + [None]):
+                self.assertLess(a, b)
+                if nxt:
+                    self.assertLessEqual(b, nxt[0])
+            for _, _, body in out:
+                self.assertTrue(body and "<" not in body)
+
+    def test_empty(self):
+        self.assertEqual(media.vita_srt(""), "")
+        self.assertEqual(media.vita_srt("hola"), "")
+
+
 class Files(unittest.TestCase):
     def atom(self, kind, body=b""):
         return (8 + len(body)).to_bytes(4, "big") + kind + body

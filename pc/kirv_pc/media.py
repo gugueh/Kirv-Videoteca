@@ -2,6 +2,7 @@
 the ffmpeg command for it. Analysis and planning are pure functions so they can be
 tested without ffmpeg."""
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -172,3 +173,49 @@ def run(args, duration, on_progress=None, cancel=None):
                 pass
     err = proc.stderr.read().decode("utf-8", "replace")
     return proc.wait() == 0, err.strip()[-400:]
+
+
+_TIME = re.compile(r"(\d+):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d+):(\d{2}):(\d{2})[,.](\d{3})")
+
+
+def _ms(h, m, s, ms):
+    return ((int(h) * 60 + int(m)) * 60 + int(s)) * 1000 + int(ms)
+
+
+def _stamp(ms):
+    return "%02d:%02d:%02d,%03d" % (ms // 3600000, ms // 60000 % 60, ms // 1000 % 60, ms % 1000)
+
+
+def vita_srt(text):
+    """Rewrites SRT text into what the Vita app accepts: no styling tags, cues in
+    order and never overlapping (overlapping lines are shown together)."""
+    cues = []
+    for block in re.split(r"\r?\n\s*\r?\n", text.replace("\ufeff", "")):
+        lines = block.strip().splitlines()
+        for n, line in enumerate(lines):
+            m = _TIME.search(line)
+            if m:
+                start, end = _ms(*m.groups()[:4]), _ms(*m.groups()[4:])
+                body = "\n".join(lines[n + 1:])
+                body = re.sub(r"\{[^}]*\}", "", body)
+                body = re.sub(r"<[^>]+>", "", body).replace("\\N", "\n").replace("\\n", "\n").replace("\\h", " ")
+                body = "\n".join(l.strip() for l in body.splitlines() if l.strip() and "\x00" not in l)
+                if body and end > start:
+                    cues.append((start, end, body))
+                break
+    edges = sorted({t for c in cues for t in c[:2]})
+    merged = []
+    for a, b in zip(edges, edges[1:]):
+        active = []
+        for start, end, body in cues:
+            if start <= a and end >= b and body not in active:
+                active.append(body)
+        if not active:
+            continue
+        body = "\n".join(active).encode("utf-8")[:1000].decode("utf-8", "ignore")
+        if merged and merged[-1][2] == body and merged[-1][1] == a:
+            merged[-1][1] = b
+        else:
+            merged.append([a, b, body])
+    merged = merged[:4096]
+    return "".join("%d\n%s --> %s\n%s\n\n" % (i + 1, _stamp(a), _stamp(b), body) for i, (a, b, body) in enumerate(merged))
