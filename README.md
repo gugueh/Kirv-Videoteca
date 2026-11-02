@@ -94,4 +94,4 @@ licenses/  third-party notices
 
 - [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) by SonicMastr: idea and starting point.
 - [libvita2d](https://github.com/xerpi/libvita2d) by xerpi (MIT), and [VitaSDK](https://vitasdk.org/).
-- Author, application code and interface design: gugueh / Kirv Studio.
+- Author, application code and interface design: gugueh / Kirv Studio. The UI is my own design, inspired by the look of the PS Vita era.
