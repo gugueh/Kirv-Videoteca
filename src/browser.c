@@ -324,6 +324,12 @@ int app_browser(int (*play)(const char *)) {
         if(b&SCE_CTRL_CROSS) break;
         app_frame_begin(); ui_welcome(); app_frame_end();
     }
+    /* Kirv Studio splash after "Start"; any button or tap skips it. */
+    for(unsigned frame=0;frame<96;frame++) {
+        unsigned b=app_buttons();
+        if(frame>6 && (b || app_touch.tap)) break;
+        app_frame_begin(); ui_splash((float)frame/95.0f); app_frame_end();
+    }
     while(!done) {
         unsigned b; int at_root,grid,desired_tab=-1; const VmpProgress *last;
         if(refresh) {

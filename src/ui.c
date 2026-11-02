@@ -95,7 +95,17 @@ void ui_welcome(void) {
     ui_text(367,359,1.55f,UI_WHITE,"Videoteca",300);
     ui_panel(350,407,260,55,1); ui_icon(UI_PLAY,370,416,38);
     ui_text(426,443,1.0f,UI_WHITE,L("Iniciar","Start"),160);
-    ui_text(30,520,.65f,UI_MUTED,"Kirv Studio  /  DEV 0.22",500);
+    ui_text(30,520,.65f,UI_MUTED,"Kirv Studio  /  DEV 0.23",500);
+}
+void ui_splash(float t) {
+    float alpha=t<.25f?t/.25f:t>.75f?(1-t)/.25f:1, scale=1.6f+.12f*t;
+    ui_background();
+    vita2d_draw_rectangle(0,0,960,544,RGBA8(0,0,0,(unsigned)(110*alpha)));
+    if(logo) {
+        float w=vita2d_texture_get_width(logo)*scale,h=vita2d_texture_get_height(logo)*scale;
+        vita2d_texture_set_filters(logo,SCE_GXM_TEXTURE_FILTER_LINEAR,SCE_GXM_TEXTURE_FILTER_LINEAR);
+        vita2d_draw_texture_tint_scale(logo,(960-w)/2,(544-h)/2,scale,scale,RGBA8(255,255,255,(unsigned)(255*alpha)));
+    }
 }
 static unsigned be32(const unsigned char *b) { return ((unsigned)b[0]<<24)|((unsigned)b[1]<<16)|((unsigned)b[2]<<8)|b[3]; }
 typedef struct { struct jpeg_error_mgr base; jmp_buf jump; } JpegError;

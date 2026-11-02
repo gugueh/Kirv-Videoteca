@@ -13,6 +13,8 @@ void ui_icon(int id,int x,int y,int size);
 void ui_header(const char *title);
 void ui_footer(const char *hint);
 void ui_welcome(void);
+/* One frame of the Kirv Studio splash; t goes from 0 to 1. */
+void ui_splash(float t);
 void ui_cover(const char *directory,int x,int y,int w,int h,const char *label);
 void ui_clear_covers(void);
 void ui_save_thumbnail(const char *video,vita2d_texture *frame);

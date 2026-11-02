@@ -6,7 +6,7 @@ MP4 video player and image viewer for the PS Vita, with a folder-based library, 
 
 Inspired by [Vita Media Player](https://github.com/SonicMastr/Vita-Media-Player) by SonicMastr. The application code was rewritten to fix the memory and path-handling bugs found while auditing the original, and it no longer uses plugins or prebuilt modules.
 
-> **Status:** DEV 0.22. Video playback is in regular use on a real PS Vita since DEV 0.18. The image viewer, console pictures, rename/delete and the English interface are new in 0.19–0.20 and are being tested on the console.
+> **Status:** DEV 0.23. Video playback is in regular use on a real PS Vita since DEV 0.18. The image viewer, console pictures, rename/delete and the English interface are new in 0.19–0.20 and are being tested on the console.
 
 ## Features
 
